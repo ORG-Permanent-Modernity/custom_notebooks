@@ -1,4 +1,3 @@
-# improved_satellite_widgets.py
 # Module containing improved interactive widgets for Earth Engine satellite processing
 
 import ipywidgets as widgets
