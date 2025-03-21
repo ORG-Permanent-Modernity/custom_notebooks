@@ -8,10 +8,10 @@ from IPython.display import display, clear_output
 import matplotlib.pyplot as plt
 import folium
 from folium.plugins import MarkerCluster
-from OSM_Scraper_util.osm_tags import osm_features
-from OSM_Scraper_util.heatmap_templates import all_templates
+from osm_tags import osm_features
+from heatmap_templates import all_templates
 
-from OSM_Scraper_util.osm_service_classes import OSMDataService, HeatmapService, StreetNetworkService
+from osm_service_classes import OSMDataService, HeatmapService, StreetNetworkService
 
 
 
