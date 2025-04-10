@@ -1485,4 +1485,4 @@ class OSMProcessor:
             ]))
 
 # Create and display the processor
-processor = OSMProcessor()
+# processor = OSMProcessor()
