@@ -3,13 +3,14 @@ import osmnx as ox
 import pandas as pd
 import geopandas as gpd
 import ipywidgets as widgets
-from ipywidgets import HBox, VBox, Layout, HTML
+from ipywidgets import HBox, VBox, Layout, HTML, Text, Button, Output
 from IPython.display import display, clear_output
 import matplotlib.pyplot as plt
 import folium
 from folium.plugins import MarkerCluster
 from osm_tags import osm_features
 from heatmap_templates import all_templates
+from google.colab import drive
 
 from osm_service_classes import OSMDataService, HeatmapService, StreetNetworkService
 
@@ -59,15 +60,15 @@ class OSMProcessor:
             layout=Layout(width='80%')
         )
         
-        # self.select_folder_button = widgets.Button(
-        #     description='Select Output Folder',
-        #     button_style='info',
-        #     tooltip='Click to browse and select a folder for all outputs',
-        #     layout=Layout(width='20%')
-        # )
-        # self.select_folder_button.on_click(self.on_select_folder_clicked)
+        self.select_folder_button = widgets.Button(
+            description='Select Output Folder',
+            button_style='info',
+            tooltip='Click to browse and select a folder for all outputs',
+            layout=Layout(width='20%')
+        )
+        self.select_folder_button.on_click(self.on_select_folder_clicked)
         
-        # self.folder_status = widgets.Output()
+        self.folder_status = widgets.Output()
 
 
         # Step 1: Location input
@@ -160,11 +161,11 @@ class OSMProcessor:
         """
 
         # Set the output folder for the entire session
-        # folder_box = VBox([
-        #     HTML("<h3>Output Location</h3>"),
-        #     HBox([self.output_folder_display, self.select_folder_button]),
-        #     self.folder_status
-        # ])
+        folder_box = VBox([
+            HTML("<h3>Output Location</h3>"),
+            HBox([self.output_folder_display, self.select_folder_button]),
+            self.folder_status
+        ])
 
         # Step 1: Location selection with new area selection method
         location_box = VBox([
@@ -190,7 +191,7 @@ class OSMProcessor:
         
         # Main layout
         main_layout = VBox([
-            # folder_box,
+            folder_box,
             location_box,
             workflow_box,
             results_box
@@ -372,11 +373,72 @@ class OSMProcessor:
         Parameters:
             b (Button): The button that was clicked
         """
-        with self.folder_status:
-            clear_output()
+def on_select_folder_clicked(self, b):
+    """
+    Set the output folder location, adapting to whether in Colab or local environment.
+    
+    Parameters:
+        b (Button): The button that was clicked
+    """
+    with self.folder_status:
+        clear_output()
+        
+        try:
+            # Check if running in Colab
+            import sys
+            in_colab = 'google.colab' in sys.modules
             
-            try:
-                # Import modules for folder selection
+            if in_colab:             
+                
+                # Mount Google Drive if not already mounted
+                drive.mount('/content/drive', force_remount=False)
+                                
+                # Display instructions and default path
+                print("📂 Google Drive is mounted.")
+                print("Please specify a folder path within your Google Drive:")
+                print("Example: 'MyDrive/my_output_folder'")
+                
+                # Create text input with default path
+                path_input = Text(value='MyDrive/', placeholder='Folder path in Drive', 
+                                description='Path:', width='300px')
+                confirm_btn = Button(description='Confirm Path', button_style='info')
+                
+                # Handler for confirm button
+                def on_confirm_clicked(btn):
+                    drive_path = path_input.value
+                    full_path = f'/content/drive/{drive_path}'
+                    
+                    # Create directory if it doesn't exist
+                    import os
+                    if not os.path.exists(full_path):
+                        try:
+                            os.makedirs(full_path)
+                            print(f"✓ Created new directory: {drive_path}")
+                        except Exception as e:
+                            print(f"❌ Error creating directory: {str(e)}")
+                            return
+                    
+                    # Store the selected path
+                    self.base_output_folder = full_path
+                    
+                    # Update the display
+                    self.output_folder_display.value = f"<b>Output Folder:</b> {drive_path} (in Google Drive)"
+                    
+                    print(f"✓ Output folder set to: {drive_path}")
+                    print(f"All results will be saved to this location in your Google Drive.")
+                    
+                    # Clear the input widgets
+                    clear_output()
+                    print(f"✓ Output folder set to: {drive_path} (in Google Drive)")
+                
+                # Connect handler to button
+                confirm_btn.on_click(on_confirm_clicked)
+                
+                # Display the input and button
+                display(HBox([path_input, confirm_btn]))
+                
+            else:
+                # For local environment - use tkinter
                 import tkinter as tk
                 from tkinter import filedialog
                 
@@ -400,11 +462,9 @@ class OSMProcessor:
                 else:
                     print("No folder selected. Using default locations.")
                     
-            except Exception as e:
-                print(f"❌ Error selecting folder: {str(e)}")
-                print("If you're running in a hosted Jupyter environment (like Google Colab), folder selection dialogs may not work.")
-                print("You may need to upload and mount your drive instead.")
-
+        except Exception as e:
+            print(f"❌ Error selecting folder: {str(e)}")
+            print("Please make sure Google Drive is accessible if running in Colab.")
 
     #### WORKFLOW EXEXUTION AND STEPS ####
     def on_workflow_changed(self, change):
