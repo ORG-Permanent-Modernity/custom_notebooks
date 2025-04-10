@@ -13,20 +13,17 @@ from heatmap_templates import all_templates
 
 from osm_service_classes import OSMDataService, HeatmapService, StreetNetworkService
 
-
-
-
-
 # Initialize the default area
 default_area = "Yerevan, Armenia"
 
 class OSMProcessor:
-    def __init__(self):
+    def __init__(self, folder):
         self.data = {}  # Dictionary to store GeoDataFrames for each feature type
         self.area = None
         self.boundary_gdf = None
         self.feature_selections = {}  # To store which features and tags were selected
-        
+        self.base_output_folder = folder
+
         self.data_service = OSMDataService()
         self.heatmap_service = HeatmapService()
         self.network_service = StreetNetworkService()
@@ -62,15 +59,15 @@ class OSMProcessor:
             layout=Layout(width='80%')
         )
         
-        self.select_folder_button = widgets.Button(
-            description='Select Output Folder',
-            button_style='info',
-            tooltip='Click to browse and select a folder for all outputs',
-            layout=Layout(width='20%')
-        )
-        self.select_folder_button.on_click(self.on_select_folder_clicked)
+        # self.select_folder_button = widgets.Button(
+        #     description='Select Output Folder',
+        #     button_style='info',
+        #     tooltip='Click to browse and select a folder for all outputs',
+        #     layout=Layout(width='20%')
+        # )
+        # self.select_folder_button.on_click(self.on_select_folder_clicked)
         
-        self.folder_status = widgets.Output()
+        # self.folder_status = widgets.Output()
 
 
         # Step 1: Location input
