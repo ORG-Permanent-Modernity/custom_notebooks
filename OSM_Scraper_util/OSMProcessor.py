@@ -368,103 +368,96 @@ class OSMProcessor:
 
     def on_select_folder_clicked(self, b):
         """
-        Open a folder selection dialog and set the chosen folder as the output location.
+        Set the output folder location, adapting to whether in Colab or local environment.
         
         Parameters:
             b (Button): The button that was clicked
         """
-def on_select_folder_clicked(self, b):
-    """
-    Set the output folder location, adapting to whether in Colab or local environment.
-    
-    Parameters:
-        b (Button): The button that was clicked
-    """
-    with self.folder_status:
-        clear_output()
-        
-        try:
-            # Check if running in Colab
-            import sys
-            in_colab = 'google.colab' in sys.modules
+        with self.folder_status:
+            clear_output()
             
-            if in_colab:             
+            try:
+                # Check if running in Colab
+                import sys
+                in_colab = 'google.colab' in sys.modules
                 
-                # Mount Google Drive if not already mounted
-                drive.mount('/content/drive', force_remount=False)
-                                
-                # Display instructions and default path
-                print("📂 Google Drive is mounted.")
-                print("Please specify a folder path within your Google Drive:")
-                print("Example: 'MyDrive/my_output_folder'")
-                
-                # Create text input with default path
-                path_input = Text(value='MyDrive/', placeholder='Folder path in Drive', 
-                                description='Path:', width='300px')
-                confirm_btn = Button(description='Confirm Path', button_style='info')
-                
-                # Handler for confirm button
-                def on_confirm_clicked(btn):
-                    drive_path = path_input.value
-                    full_path = f'/content/drive/{drive_path}'
+                if in_colab:             
                     
-                    # Create directory if it doesn't exist
-                    import os
-                    if not os.path.exists(full_path):
-                        try:
-                            os.makedirs(full_path)
-                            print(f"✓ Created new directory: {drive_path}")
-                        except Exception as e:
-                            print(f"❌ Error creating directory: {str(e)}")
-                            return
+                    # Mount Google Drive if not already mounted
+                    drive.mount('/content/drive', force_remount=False)
+                                    
+                    # Display instructions and default path
+                    print("📂 Google Drive is mounted.")
+                    print("Please specify a folder path within your Google Drive:")
+                    print("Example: 'MyDrive/my_output_folder'")
                     
-                    # Store the selected path
-                    self.base_output_folder = full_path
+                    # Create text input with default path
+                    path_input = Text(value='MyDrive/', placeholder='Folder path in Drive', 
+                                    description='Path:', width='300px')
+                    confirm_btn = Button(description='Confirm Path', button_style='info')
                     
-                    # Update the display
-                    self.output_folder_display.value = f"<b>Output Folder:</b> {drive_path} (in Google Drive)"
+                    # Handler for confirm button
+                    def on_confirm_clicked(btn):
+                        drive_path = path_input.value
+                        full_path = f'/content/drive/{drive_path}'
+                        
+                        # Create directory if it doesn't exist
+                        import os
+                        if not os.path.exists(full_path):
+                            try:
+                                os.makedirs(full_path)
+                                print(f"✓ Created new directory: {drive_path}")
+                            except Exception as e:
+                                print(f"❌ Error creating directory: {str(e)}")
+                                return
+                        
+                        # Store the selected path
+                        self.base_output_folder = full_path
+                        
+                        # Update the display
+                        self.output_folder_display.value = f"<b>Output Folder:</b> {drive_path} (in Google Drive)"
+                        
+                        print(f"✓ Output folder set to: {drive_path}")
+                        print(f"All results will be saved to this location in your Google Drive.")
+                        
+                        # Clear the input widgets
+                        clear_output()
+                        print(f"✓ Output folder set to: {drive_path} (in Google Drive)")
                     
-                    print(f"✓ Output folder set to: {drive_path}")
-                    print(f"All results will be saved to this location in your Google Drive.")
+                    # Connect handler to button
+                    confirm_btn.on_click(on_confirm_clicked)
                     
-                    # Clear the input widgets
-                    clear_output()
-                    print(f"✓ Output folder set to: {drive_path} (in Google Drive)")
-                
-                # Connect handler to button
-                confirm_btn.on_click(on_confirm_clicked)
-                
-                # Display the input and button
-                display(HBox([path_input, confirm_btn]))
-                
-            else:
-                # For local environment - use tkinter
-                import tkinter as tk
-                from tkinter import filedialog
-                
-                # Hide the main Tkinter window
-                root = tk.Tk()
-                root.withdraw()
-                
-                # Open the folder selection dialog
-                folder_path = filedialog.askdirectory(title="Select Output Folder")
-                
-                # Check if a folder was selected
-                if folder_path:
-                    # Store the selected path
-                    self.base_output_folder = folder_path
+                    # Display the input and button
+                    display(HBox([path_input, confirm_btn]))
                     
-                    # Update the display
-                    self.output_folder_display.value = f"<b>Output Folder:</b> {self.base_output_folder}"
-                    
-                    print(f"✓ Output folder set to: {self.base_output_folder}")
-                    print(f"All results will be saved to this location.")
                 else:
-                    print("No folder selected. Using default locations.")
+                    # For local environment - use tkinter
+                    import tkinter as tk
+                    from tkinter import filedialog
                     
-        except Exception as e:
-            print(f"❌ Error selecting folder: {str(e)}")
-            print("Please make sure Google Drive is accessible if running in Colab.")
+                    # Hide the main Tkinter window
+                    root = tk.Tk()
+                    root.withdraw()
+                    
+                    # Open the folder selection dialog
+                    folder_path = filedialog.askdirectory(title="Select Output Folder")
+                    
+                    # Check if a folder was selected
+                    if folder_path:
+                        # Store the selected path
+                        self.base_output_folder = folder_path
+                        
+                        # Update the display
+                        self.output_folder_display.value = f"<b>Output Folder:</b> {self.base_output_folder}"
+                        
+                        print(f"✓ Output folder set to: {self.base_output_folder}")
+                        print(f"All results will be saved to this location.")
+                    else:
+                        print("No folder selected. Using default locations.")
+                        
+            except Exception as e:
+                print(f"❌ Error selecting folder: {str(e)}")
+                print("Please make sure Google Drive is accessible if running in Colab.")
 
     #### WORKFLOW EXEXUTION AND STEPS ####
     def on_workflow_changed(self, change):
