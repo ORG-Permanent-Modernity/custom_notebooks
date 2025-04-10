@@ -160,11 +160,11 @@ class OSMProcessor:
         """
 
         # Set the output folder for the entire session
-        folder_box = VBox([
-            HTML("<h3>Output Location</h3>"),
-            HBox([self.output_folder_display, self.select_folder_button]),
-            self.folder_status
-        ])
+        # folder_box = VBox([
+        #     HTML("<h3>Output Location</h3>"),
+        #     HBox([self.output_folder_display, self.select_folder_button]),
+        #     self.folder_status
+        # ])
 
         # Step 1: Location selection with new area selection method
         location_box = VBox([
