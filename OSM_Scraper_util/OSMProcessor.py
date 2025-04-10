@@ -18,12 +18,11 @@ from osm_service_classes import OSMDataService, HeatmapService, StreetNetworkSer
 default_area = "Yerevan, Armenia"
 
 class OSMProcessor:
-    def __init__(self, folder):
+    def __init__(self):
         self.data = {}  # Dictionary to store GeoDataFrames for each feature type
         self.area = None
         self.boundary_gdf = None
         self.feature_selections = {}  # To store which features and tags were selected
-        self.base_output_folder = folder
 
         self.data_service = OSMDataService()
         self.heatmap_service = HeatmapService()
@@ -421,7 +420,6 @@ class OSMProcessor:
                         print(f"All results will be saved to this location in your Google Drive.")
                         
                         # Clear the input widgets
-                        clear_output()
                         print(f"✓ Output folder set to: {drive_path} (in Google Drive)")
                     
                     # Connect handler to button
