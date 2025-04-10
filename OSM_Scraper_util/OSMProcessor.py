@@ -190,7 +190,7 @@ class OSMProcessor:
         
         # Main layout
         main_layout = VBox([
-            folder_box,
+            # folder_box,
             location_box,
             workflow_box,
             results_box
