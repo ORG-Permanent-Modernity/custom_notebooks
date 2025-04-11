@@ -415,11 +415,9 @@ class OSMProcessor:
                         
                         # Update the display
                         self.output_folder_display.value = f"<b>Output Folder:</b> {drive_path} (in Google Drive)"
-                        
-                        print(f"✓ Output folder set to: {drive_path}")
-                        print(f"All results will be saved to this location in your Google Drive.")
-                        
+
                         # Clear the input widgets
+                        print(f"-----------------------------------------------------------------")
                         print(f"✓ Output folder set to: {drive_path} (in Google Drive)")
                     
                     # Connect handler to button
