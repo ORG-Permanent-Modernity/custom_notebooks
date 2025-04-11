@@ -405,7 +405,7 @@ class OSMProcessor:
                         if not os.path.exists(full_path):
                             try:
                                 os.makedirs(full_path)
-                                print(f"✓ Created new directory: {drive_path}")
+                                # print(f"✓ Created new directory: {drive_path}")
                             except Exception as e:
                                 print(f"❌ Error creating directory: {str(e)}")
                                 return
@@ -1248,7 +1248,7 @@ class OSMProcessor:
             )
             
             # Set up the generate button to call our new generate_heatmaps method
-            generate_button.on_click(lambda b: self.generate_heatmaps(
+            generate_button.on_click(lambda b: self.initiate_heatmaps(
                 b, output_folder, cell_size, bandwidth, category_selector
             ))
             
@@ -1260,7 +1260,7 @@ class OSMProcessor:
                 generate_button
             ]))
 
-    def generate_heatmaps(self, b, output_folder, cell_size, bandwidth, category_selector):
+    def initiate_heatmaps(self, b, output_folder, cell_size, bandwidth, category_selector):
         """
         Generate density heatmaps based on the specified parameters.
         
