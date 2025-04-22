@@ -10,7 +10,7 @@ import folium
 from folium.plugins import MarkerCluster
 from osm_tags import osm_features
 from heatmap_templates import all_templates
-from google.colab import drive
+# from google.colab import drive
 
 from osm_service_classes import OSMDataService, HeatmapService, StreetNetworkService
 
@@ -381,7 +381,7 @@ class OSMProcessor:
                 in_colab = 'google.colab' in sys.modules
                 
                 if in_colab:             
-                    
+                    from google.colab import drive
                     # Mount Google Drive if not already mounted
                     drive.mount('/content/drive', force_remount=False)
                                     
@@ -476,7 +476,7 @@ class OSMProcessor:
                 self.setup_heatmap_workflow()
             elif workflow == 'Gather Street Network':
                 self.setup_street_network_workflow()
-            elif workflow == 'Custom':
+            elif workflow == 'Custom (DEPRECATED - functionality may not work fully)':
                 self.setup_custom_workflow()
 
     ## MAIN WORKFLOW STEPS ##
@@ -774,7 +774,9 @@ class OSMProcessor:
         """
 
         with self.workflow_container:
-            # Step 2 & 3: Feature and tag selection
+            
+            print('Initializing Custom Workflow...')
+
             feature_tag_box = VBox([
                 HTML("<h4>Custom Data Collection Workflow</h4>"),
                 HTML("<p>Select specific feature types and tags to collect from OpenStreetMap.</p>"),
@@ -970,21 +972,8 @@ class OSMProcessor:
                         button_style='info',
                         layout=Layout(width='300px')
                     )
-                    
-                    def export_pkl_handler(b):
-                        import pickle
-                        import os
-                        folder_name = self.area.replace(', ', '_').replace(' ', '_')
-                        os.makedirs(folder_name, exist_ok=True)
-                        filename = os.path.join(folder_name, "all_data.pkl")
 
-                        with open(filename, 'wb') as f:
-                            pickle.dump(self.data, f)
-                        print(f"All data exported to {filename}")
-                        print(f"Data structure: dictionary with {len(self.data)} keys: {list(self.data.keys())}")
-                        print("Example access: data['amenity'] for amenity features")
-
-                    export_pkl_button.on_click(export_pkl_handler)
+                    export_pkl_button.on_click(self.export_pkl_handler)
                     display(export_pkl_button)
                     
                     export_gdf_button = widgets.Button(
@@ -993,19 +982,7 @@ class OSMProcessor:
                         layout=Layout(width='300px')
                     )
                     
-                    def export_gdf_handler(b):
-                        
-                        # Create a folder with the self.area name, if not exists
-                        import os
-                        folder_name = self.area.replace(', ', '_').replace(' ', '_')
-                        os.makedirs(folder_name, exist_ok=True)
-
-                        for feature_type, gdf in self.data.items():
-                            filename = os.path.join(folder_name, f"{feature_type}.geojson")
-                            gdf.to_file(filename, driver='GeoJSON')
-                            print(f"✓ {feature_type} data exported to {filename}")
-
-                    export_gdf_button.on_click(export_gdf_handler)
+                    export_gdf_button.on_click(self.export_gdf_handler)
                     display(export_gdf_button)
 
                     # Add a preview data button
@@ -1135,6 +1112,35 @@ class OSMProcessor:
             # Display the map
             display(m)
 
+    def export_gdf_handler(self, b):
+
+        with self.results_output:        
+            print('Exporting data to GeoJSON files...')
+
+            # Create a folder with the self.area name, if not exists
+            import os
+            place_name = self.area.replace(', ', '_').replace(' ', '_')
+            folder_name = os.path.join(self.base_output_folder, place_name)
+            os.makedirs(folder_name, exist_ok=True)
+
+            for feature_type, gdf in self.data.items():
+                filename = os.path.join(folder_name, f"{feature_type}.geojson")
+                gdf.to_file(filename, driver='GeoJSON')
+                print(f"✓ {feature_type} data exported to {filename}")
+
+    def export_pkl_handler(self, b):
+        import pickle
+        import os
+        folder_name = self.area.replace(', ', '_').replace(' ', '_')
+        os.makedirs(folder_name, exist_ok=True)
+        filename = os.path.join(folder_name, "all_data.pkl")
+
+        with open(filename, 'wb') as f:
+            pickle.dump(self.data, f)
+        print(f"All data exported to {filename}")
+        print(f"Data structure: dictionary with {len(self.data)} keys: {list(self.data.keys())}")
+        print("Example access: data['amenity'] for amenity features")
+    
     def process_data_with_template(self):
         """
         Process collected data using predefined template categories.

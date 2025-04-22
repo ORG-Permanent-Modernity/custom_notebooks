@@ -1014,13 +1014,24 @@ class StreetNetworkService:
         
         self._log_progress(f"Processing street network with {len(gdf)} features...", progress_callback)
         
-        # Make a copy to avoid modifying the original
+        def get_utm_crs(gdf):
+            """Determine the best UTM CRS based on the centroid of the data's extent."""
+            # Calculate the centroid of the bounds in WGS84
+            bounds = gdf.to_crs(epsg=4326).total_bounds  # (minx, miny, maxx, maxy)
+            lon = (bounds[0] + bounds[2]) / 2  # average of min and max longitudes
+            lat = (bounds[1] + bounds[3]) / 2  # average of min and max latitudes
+            
+            # Calculate UTM zone number
+            zone_number = int(((lon + 180) / 6) % 60) + 1
+            
+            # Determine if in northern or southern hemisphere
+            return 32600 + zone_number if lat >= 0 else 32700 + zone_number
+            
         network_gdf = gdf.copy()
-        
-        # Convert to appropriate CRS (EPSG:32638 is UTM Zone 38N, appropriate for Yerevan, Armenia)
-        # This may need to be adjusted based on the area
-        self._log_progress("Converting to appropriate CRS...", progress_callback)
-        network_gdf = network_gdf.to_crs(epsg=32638)
+
+        utm_crs = get_utm_crs(network_gdf)
+        self._log_progress(f"Converting to appropriate CRS -- {utm_crs}", progress_callback)
+        network_gdf = network_gdf.to_crs(epsg=utm_crs)
         
         # Keep only LineString geometries
         self._log_progress(f"Filtering for LineStrings (before: {len(network_gdf)} features)", progress_callback)
