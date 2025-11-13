@@ -985,6 +985,15 @@ class OSMProcessor:
                     export_gdf_button.on_click(self.export_gdf_handler)
                     display(export_gdf_button)
 
+                    export_shp_button = widgets.Button(
+                        description=f'Export All Points as Shapefile',
+                        button_style='info',
+                        layout=Layout(width='300px')
+                    )
+
+                    export_shp_button.on_click(self.export_shp_handler)
+                    display(export_shp_button)
+
                     # Add a preview data button
                     preview_button = widgets.Button(
                         description='Preview Data on Map',
@@ -1140,6 +1149,77 @@ class OSMProcessor:
         print(f"All data exported to {filename}")
         print(f"Data structure: dictionary with {len(self.data)} keys: {list(self.data.keys())}")
         print("Example access: data['amenity'] for amenity features")
+
+    def export_shp_handler(self, b):
+        """
+        Export all points with their classes to a shapefile.
+        Combines all feature types and includes the class information.
+        """
+        with self.results_output:
+            print('\nExporting all points to shapefile...')
+
+            # Create a folder with the self.area name, if not exists
+            import os
+            place_name = self.area.replace(', ', '_').replace(' ', '_')
+            folder_name = os.path.join(self.base_output_folder, place_name)
+            os.makedirs(folder_name, exist_ok=True)
+
+            # Collect all point data
+            all_points = []
+
+            for feature_type, gdf in self.data.items():
+                # Make a copy to avoid modifying original data
+                gdf_copy = gdf.copy()
+
+                # Filter to only keep Point geometries
+                point_mask = gdf_copy.geometry.apply(
+                    lambda geom: geom is not None and geom.geom_type == 'Point'
+                )
+                points_gdf = gdf_copy[point_mask].copy()
+
+                if len(points_gdf) == 0:
+                    print(f"  ↳ Skipping {feature_type}: no point geometries found")
+                    continue
+
+                # Add a class column to identify the feature type
+                points_gdf['class'] = feature_type
+
+                # Extract the specific tag value if it exists (e.g., 'restaurant', 'cafe')
+                if feature_type in points_gdf.columns:
+                    points_gdf['subclass'] = points_gdf[feature_type].astype(str)
+                else:
+                    points_gdf['subclass'] = 'unknown'
+
+                # Keep only essential columns: geometry, class, subclass, and name if available
+                keep_cols = ['geometry', 'class', 'subclass']
+                if 'name' in points_gdf.columns:
+                    keep_cols.append('name')
+
+                # Filter to only keep columns that exist
+                keep_cols = [col for col in keep_cols if col in points_gdf.columns]
+                points_gdf = points_gdf[keep_cols]
+
+                all_points.append(points_gdf)
+                print(f"  ✓ Added {len(points_gdf)} points from {feature_type}")
+
+            if not all_points:
+                print("❌ No point data found to export")
+                return
+
+            # Combine all point data
+            combined_points = pd.concat(all_points, ignore_index=True)
+
+            # Ensure CRS is set (use WGS84 if not already set)
+            if combined_points.crs is None:
+                combined_points.set_crs(epsg=4326, inplace=True)
+
+            # Save to shapefile
+            filename = os.path.join(folder_name, "all_points_classified.shp")
+            combined_points.to_file(filename, driver='ESRI Shapefile')
+
+            print(f"\n✓ Exported {len(combined_points)} points to: {filename}")
+            print(f"  - Classes included: {', '.join(combined_points['class'].unique())}")
+            print(f"  - Columns: {', '.join(combined_points.columns)}")
     
     def process_data_with_template(self):
         """
@@ -1259,11 +1339,57 @@ class OSMProcessor:
             ))
             
             # Display the widgets
+            # Add export shapefile button for heatmap data
+            export_heatmap_shp_button = widgets.Button(
+                description='Export Points as Shapefile',
+                button_style='info',
+                tooltip='Export all heatmap points with their categories',
+                layout=Layout(width='200px')
+            )
+
+            def export_heatmap_shp(b):
+                with self.results_output:
+                    print('\nExporting heatmap points to shapefile...')
+
+                    import os
+                    place_name = self.area.replace(', ', '_').replace(' ', '_')
+                    folder_name = os.path.join(self.base_output_folder, place_name)
+                    os.makedirs(folder_name, exist_ok=True)
+
+                    # Use the heatmap_data which already has categorized points
+                    export_data = self.heatmap_data.copy()
+
+                    # Keep only essential columns
+                    keep_cols = ['geometry', 'facility_type', 'source']
+                    if 'name' in export_data.columns:
+                        keep_cols.append('name')
+                    if 'category' in export_data.columns:
+                        keep_cols.append('category')
+
+                    # Filter to only keep columns that exist
+                    keep_cols = [col for col in keep_cols if col in export_data.columns]
+                    export_data = export_data[keep_cols]
+
+                    # Ensure CRS is set
+                    if export_data.crs is None:
+                        export_data.set_crs(epsg=4326, inplace=True)
+
+                    # Save to shapefile
+                    filename = os.path.join(folder_name, "heatmap_points_classified.shp")
+                    export_data.to_file(filename, driver='ESRI Shapefile')
+
+                    print(f"✓ Exported {len(export_data)} points to: {filename}")
+                    if 'category' in export_data.columns:
+                        print(f"  - Categories: {', '.join(export_data['category'].unique())}")
+                    print(f"  - Columns: {', '.join(export_data.columns)}")
+
+            export_heatmap_shp_button.on_click(export_heatmap_shp)
+
             display(widgets.VBox([
                 widgets.HBox([new_output_path]),
                 widgets.HBox([cell_size, bandwidth]),
                 widgets.HBox([category_selector, select_all_cats_button]),
-                generate_button
+                widgets.HBox([generate_button, export_heatmap_shp_button])
             ]))
 
     def initiate_heatmaps(self, b, output_folder, cell_size, bandwidth, category_selector):

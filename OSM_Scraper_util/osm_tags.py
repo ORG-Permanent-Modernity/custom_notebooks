@@ -514,5 +514,4 @@ osm_features = {
 
         # Other waterway features
         'soakhole', 'turning_point', 'water_point', 'fuel']
-
 }
