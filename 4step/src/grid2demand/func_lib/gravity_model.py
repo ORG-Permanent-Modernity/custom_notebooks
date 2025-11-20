@@ -1,0 +1,148 @@
+"""# -*- coding:utf-8 -*-
+##############################################################
+# Created Date: Thursday, September 7th 2023
+# Contact Info: luoxiangyong01@gmail.com
+# Author/Copyright: Mr. Xiangyong Luo
+##############################################################
+"""
+
+import numpy as np
+from grid2demand.utils_lib.pkg_settings import pkg_settings
+
+
+def calc_zone_production_attraction(node_dict: dict, poi_dict: dict, zone_dict: dict, verbose: bool = False) -> dict:
+    """Calculate zone production and attraction based on node and poi production and attraction
+
+    Args:
+        node_dict (dict): dictionary of node objects
+        poi_dict (dict): dictionary of poi objects
+        zone_dict (dict): dictionary of zone objects
+        verbose (bool): whether to print out processing message. Defaults to False.
+
+    Returns:
+        dict: dictionary of zone objects with updated production and attraction
+    """
+
+    # calculate zone production and attraction based on node production and attraction
+    for zone_name in zone_dict:
+
+        # calculate zone production and attraction based on node production and attraction
+        if zone_dict[zone_name]["node_id_list"]:
+            for node_id in zone_dict[zone_name]["node_id_list"]:
+                try:
+                    zone_dict[zone_name]["production"] += node_dict[node_id]["production"]
+                    zone_dict[zone_name]["attraction"] += node_dict[node_id]["attraction"]
+                except KeyError:
+                    continue
+
+    # calculate zone production and attraction based on poi
+    for zone_name in zone_dict:
+        if zone_dict[zone_name]["poi_id_list"]:
+            for poi_id in zone_dict[zone_name]["poi_id_list"]:
+                try:
+                    poi_trip_rate = poi_dict[poi_id]["trip_rate"]
+                    for key in poi_trip_rate:
+                        if "production_rate" in key:
+                            zone_dict[zone_name]["production"] += poi_trip_rate[key] * \
+                                poi_dict[poi_id]["area"] / 1000
+                        if "attraction_rate" in key:
+                            zone_dict[zone_name]["attraction"] += poi_trip_rate[key] * \
+                                poi_dict[poi_id]["area"] / 1000
+
+                except KeyError:
+                    continue
+
+    if verbose:
+        print("  : Successfully calculated zone production and attraction based on node production and attraction.")
+
+    return zone_dict
+
+
+def calc_zone_od_friction_attraction(zone_od_friction_matrix_dict: dict,
+                                     zone_dict: dict,
+                                     verbose: bool = False) -> dict:
+    """Calculate zone od friction attraction
+
+    Args:
+        zone_od_friction_matrix_dict (dict): zone od friction matrix
+        zone_dict (dict): dictionary of zone objects
+        verbose (bool): whether to print out processing message. Defaults to False.
+
+    Returns:
+        dict: dictionary of zone od friction attraction
+    """
+
+    zone_od_friction_attraction_dict = {}
+    for zone_id_pair, friction_val in zone_od_friction_matrix_dict.items():
+        if zone_id_pair[0] not in zone_od_friction_attraction_dict:
+            zone_od_friction_attraction_dict[zone_id_pair[0]
+                                             ] = friction_val * zone_dict[zone_id_pair[1]]["attraction"]
+        else:
+            zone_od_friction_attraction_dict[zone_id_pair[0]
+                                             ] += friction_val * zone_dict[zone_id_pair[1]]["attraction"]
+
+    if verbose:
+        print("  : Successfully calculated zone od friction attraction.")
+
+    return zone_od_friction_attraction_dict
+
+
+def run_gravity_model(zone_dict: dict,
+                      zone_od_dist_matrix: dict,
+                      trip_purpose: int = 1,
+                      alpha: float = 28507,
+                      beta: float = -0.02,
+                      gamma: float = -0.123,
+                      verbose: bool = False) -> dict:
+    """Run gravity model to generate demand.csv
+
+    Args:
+        zone_dict (dict): dictionary of zone objects
+        zone_od_dist_matrix (dict): dictionary of zone od distance matrix
+        trip_purpose (int): specify trip purpose. Defaults to 1.
+        alpha (float): parameter for gravity model. Defaults to 28507.
+        beta (float): parameter for gravity model. Defaults to -0.02.
+        gamma (float): parameter for gravity model. Defaults to -0.123.
+        verbose (bool): whether to print out processing message. Defaults to False.
+
+    Returns:
+        dict: dictionary of zone od distance matrix with updated volume
+    """
+
+    # if trip purpose is specified in trip_purpose_dict, use the default value
+    # otherwise, use the user-specified value
+    trip_purpose_dict = pkg_settings.get("trip_purpose_dict")
+
+    if trip_purpose in trip_purpose_dict:
+        alpha = trip_purpose_dict[trip_purpose]["alpha"]
+        beta = trip_purpose_dict[trip_purpose]["beta"]
+        gamma = trip_purpose_dict[trip_purpose]["gamma"]
+
+    # perform zone od friction matrix
+    zone_od_friction_matrix_dict = {
+        zone_id_pair: alpha * (od_dist ** beta) * (
+            np.exp(od_dist * gamma)) if od_dist != 0 else 0
+        for zone_id_pair, od_dist in zone_od_dist_matrix.items()
+    }
+
+    # perform attraction calculation
+    zone_od_friction_attraction_dict = calc_zone_od_friction_attraction(zone_od_friction_matrix_dict,
+                                                                        zone_dict,
+                                                                        verbose=verbose)
+
+    # perform od trip flow (volume) calculation
+    for zone_id_pair in zone_od_friction_matrix_dict:
+        try:
+            zone_od_dist_matrix[zone_id_pair] = float(zone_dict[zone_id_pair[0]]["production"] *
+                                                      zone_dict[zone_id_pair[1]]["attraction"] *
+                                                      zone_od_friction_matrix_dict[zone_id_pair] /
+                                                      zone_od_friction_attraction_dict[zone_id_pair[0]])
+        except Exception:
+            zone_od_dist_matrix[zone_id_pair] = 0
+
+    # Generate demand.csv
+    if verbose:
+        print("  : Successfully run gravity model to generate demand.csv.")
+
+    # return pd.DataFrame(list(zone_od_matrix_dict.values()))
+    return zone_od_dist_matrix
