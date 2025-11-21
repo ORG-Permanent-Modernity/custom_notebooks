@@ -9,10 +9,6 @@ __pycache__/
 # Jupyter Notebook
 .ipynb_checkpoints
 
-# Data directories
-network_data/
-*.csv
-
 # Virtual environments
 venv/
 env/
@@ -24,3 +20,23 @@ ENV/
 
 # OS
 .DS_Store
+
+# Large files (>25MB) - Geographic and Census Data
+4step/input_data/land_use/nyc_mappluto_25v3_shp/*.shp
+4step/input_data/land_use/nyc_mappluto_25v3_shp/*.dbf
+4step/input_data/land_use/nyc_mappluto_25v3_shp/*.sbn
+4step/input_data/land_use/nyc_mappluto_25v3_shp/*.shx
+4step/input_data/lodes/*.csv.gz
+4step/input_data/cms/*.csv
+4step/input_data/cms/*.geojson
+4step/input_data/census/*.zip
+4step/input_data/census/ny_state_blocks/*.shp
+4step/input_data/census/ny_state_blocks/*.dbf
+4step/input_data/census/ny_state_blocks/*.shx
+4step/input_data/hourly_ridership/*.csv
+4step/input_data/trip_generation/*.pdf
+4step/data/poi.csv
+4step/data/link.csv
+4step/data/zone_brooklyn_census_blocks.csv
+4step/_archive/**/*.csv
+4step/_archive/**/*.ipynb

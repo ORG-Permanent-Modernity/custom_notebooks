@@ -1,0 +1,30 @@
+land_use,weekday_am_in,weekday_am_out,weekday_midday_in,weekday_midday_out,weekday_pm_in,weekday_pm_out,saturday_in,saturday_out
+Office (multi-tenant type building),89,11,48,52,17,83,50,50
+Residential (3 or more floors),22,78,50,50,63,37,51,49
+Residential (2 floors or less),22,78,50,50,63,37,51,49
+Residential (NYCHA),25,75,51,49,76,24,56,56
+Hotel,34,66,44,56,54,46,53,47
+Home Improvement Store,52,48,50,50,51,49,50,50
+Supermarket,51,49,51,49,50,50,50,50
+Supermarket (Staten Island only),56,44,48,52,51,49,47,53
+Museum,100,0,43,57,31,69,54,46
+Passive Park Space,59,41,55,45,55,45,55,45
+Active Park Space,59,41,55,45,55,45,55,45
+Local Retail,53,47,50,50,50,50,50,50
+Destination Retail,63,37,53,47,49,51,52,48
+Fast Food Restaurant with Drive Through Window,51,49,48,52,51,49,49,51
+Fast Food Restaurant without Drive Through Window,49,51,49,51,47,53,51,49
+Sit Down/High Turnover Restaurant,64,36,54,46,53,47,56,44
+Public School (Students),100,0,N/A,N/A,0,100,N/A,N/A
+Public School (Parents),50,50,N/A,N/A,50,50,N/A,N/A
+Public School (Staff),100,0,N/A,N/A,0,100,N/A,N/A
+Daycare (Children),100,0,N/A,N/A,0,100,N/A,N/A
+Daycare (Parents),50,50,N/A,N/A,50,50,N/A,N/A
+Daycare (Staff),100,0,50,50,0,100,N/A,N/A
+Academic University,94,6,46,54,44,56,57,43
+Cineplex,95,5,62,38,54,46,56,44
+Health Club,57,43,57,43,52,45,45,55
+Health Club with Preschool/Guest Room Service,54,46,43,56,56,44,48,52
+Television Studio,74,26,49,51,34,66,N/A,N/A
+Medical Office,62,38,47,53,35,65,49,51
+Senior Center,66,34,50,50,35,65,24,76
