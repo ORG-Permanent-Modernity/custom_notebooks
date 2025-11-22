@@ -1,0 +1,27 @@
+building,unit_of_measure,trip_purpose,production_rate1,attraction_rate1,production_notes,attraction_notes
+library,per 1000 sf,1,8.16,0.0,1,1
+university,per 1000 sf,1,1.17,0.0,1,1
+office,per 1000 sf,1,2.04,0.0,1,1
+arts_centre,per 1000 sf,1,0.18,0.0,1,1
+university;yes,per 1000 sf,1,1.17,0.0,1,1
+bank,per 1000 sf,1,12.13,0.0,1,1
+childcare,per 1000 sf,1,11.12,0.0,1,1
+school,per 1000 sf,1,2.04,0.0,1,1
+public,per 1000 sf,1,4.79,0.0,1,1
+post_office,per 1000 sf,1,11.21,0.0,1,1
+pharmacy,per 1000 sf,1,10.29,0.0,1,1
+yes,per 1000 sf,1,1.15,1.15,1,1
+parking,per 1000 sf,1,0.0,2.39,1,1
+apartments,per 1000 sf,1,0.0,0.48,1,1
+motorcycle_parking,per 1000 sf,1,0.0,2.39,1,1
+theatre,per 1000 sf,1,0.0,6.17,1,1
+restaurant,per 1000 sf,1,0.0,7.8,1,1
+cafe,per 1000 sf,1,0.0,36.31,1,1
+bar,per 1000 sf,1,0.0,7.8,1,1
+bicycle_parking,per 1000 sf,1,0.0,2.39,1,1
+residential,per 1000 sf,1,0.0,0.48,1,1
+commercial,per 1000 sf,1,0.0,3.81,1,1
+house,per 1000 sf,1,0.0,0.48,1,1
+stadium,per 1000 sf,1,0.0,0.47,1,1
+retail,per 1000 sf,1,0.0,6.84,1,1
+fast_food,per 1000 sf,1,0.0,14.13,1,1

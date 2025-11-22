@@ -27,7 +27,7 @@ ENV/
 4step/input_data/land_use/nyc_mappluto_25v3_shp/*.sbn
 4step/input_data/land_use/nyc_mappluto_25v3_shp/*.shx
 4step/input_data/lodes/*.csv.gz
-4step/input_data/cms/*.csv
+# 4step/input_data/cms/*.csv
 4step/input_data/cms/*.geojson
 4step/input_data/census/*.zip
 4step/input_data/census/ny_state_blocks/*.shp
@@ -40,3 +40,12 @@ ENV/
 4step/data/zone_brooklyn_census_blocks.csv
 4step/_archive/**/*.csv
 4step/_archive/**/*.ipynb
+4step/_archive/cache/
+
+# Large geojson/cache files (>25MB)
+4step/cache/
+4step/_buildings.geojson
+4step/buildings_brooklyn.geojson
+4step/unified_pois_brooklyn.csv
+4step/unified_pois_brooklyn.geojson
+4step/input_data/cms/Citywide_Mobility_Survey_-_Trip_2019.csv
