@@ -49,3 +49,8 @@ ENV/
 4step/unified_pois_brooklyn.csv
 4step/unified_pois_brooklyn.geojson
 4step/input_data/cms/Citywide_Mobility_Survey_-_Trip_2019.csv
+
+# New large data files
+4step/data/buildings_brooklyn.geojson
+4step/data/unified_pois_brooklyn.csv
+4step/data/unified_pois_brooklyn.geojson

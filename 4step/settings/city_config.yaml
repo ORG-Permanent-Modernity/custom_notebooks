@@ -1,0 +1,101 @@
+# City-specific configuration for building and POI processing
+# This file contains parameters that may vary between cities
+
+# Default city (can be overridden)
+default_city: brooklyn
+
+# City-specific configurations
+cities:
+  brooklyn:
+    # Building parameters
+    building:
+      default_floors: 3  # Default number of floors for residential buildings
+      avg_floor_height_m: 3.0  # Average floor height in meters
+      m2_to_sqft: 10.7639  # Conversion factor
+
+    # Residential unit sizing (for trip generation)
+    residential:
+      sqft_per_du: 1000  # Average dwelling unit size (1BR/2BR average)
+      floors_threshold: 3  # Buildings with >= this many floors use "3 or more floors" category
+
+    # Commercial/hospitality sizing
+    commercial:
+      sqft_per_hotel_room: 400  # Industry standard hotel room size
+      sqft_per_student: 150  # Typical space per student in schools
+      sqft_per_cinema_seat: 8  # Typical space per cinema seat
+
+    # Land conversion
+    land:
+      sqft_to_acres: 0.00002296  # 1 acre = 43,560 sq ft
+
+  manhattan:
+    building:
+      default_floors: 6  # Higher density than Brooklyn
+      avg_floor_height_m: 3.5  # Taller commercial floors
+      m2_to_sqft: 10.7639
+
+    residential:
+      sqft_per_du: 850  # Smaller units in Manhattan
+      floors_threshold: 5  # Higher threshold for high-rise category
+
+    commercial:
+      sqft_per_hotel_room: 350  # Smaller hotel rooms
+      sqft_per_student: 120  # More efficient school space
+      sqft_per_cinema_seat: 7
+
+    land:
+      sqft_to_acres: 0.00002296
+
+  queens:
+    building:
+      default_floors: 2  # More suburban
+      avg_floor_height_m: 3.0
+      m2_to_sqft: 10.7639
+
+    residential:
+      sqft_per_du: 1200  # Larger units
+      floors_threshold: 3
+
+    commercial:
+      sqft_per_hotel_room: 450
+      sqft_per_student: 175
+      sqft_per_cinema_seat: 9
+
+    land:
+      sqft_to_acres: 0.00002296
+
+  chicago:
+    building:
+      default_floors: 4
+      avg_floor_height_m: 3.2
+      m2_to_sqft: 10.7639
+
+    residential:
+      sqft_per_du: 950
+      floors_threshold: 4
+
+    commercial:
+      sqft_per_hotel_room: 400
+      sqft_per_student: 160
+      sqft_per_cinema_seat: 8
+
+    land:
+      sqft_to_acres: 0.00002296
+
+  los_angeles:
+    building:
+      default_floors: 2  # Sprawling, low-rise
+      avg_floor_height_m: 3.0
+      m2_to_sqft: 10.7639
+
+    residential:
+      sqft_per_du: 1100
+      floors_threshold: 3
+
+    commercial:
+      sqft_per_hotel_room: 425
+      sqft_per_student: 180
+      sqft_per_cinema_seat: 10
+
+    land:
+      sqft_to_acres: 0.00002296
