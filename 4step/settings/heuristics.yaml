@@ -1,0 +1,199 @@
+# Heuristics for allocating building square footage to POIs and for mapping building tags.
+
+# POI space allocation heuristics
+# Format: {poi_type: [floors_occupied, remaining_use]}
+# floors_occupied can be:
+#   'full': POI occupies the entire building.
+#   'ground': POI occupies the ground floor.
+#   'multi': POI occupies multiple floors (typically 2).
+# remaining_use is the inferred use of the rest of the building (e.g., 'residential', 'office').
+poi_heuristics:
+  # RELIGIOUS
+  place_of_worship: ['full', null]
+
+  # EDUCATION
+  school: ['full', null]
+  kindergarten: ['full', null]
+  college: ['full', null]
+  university: ['full', null]
+  library: ['full', null]
+
+  # HEALTHCARE
+  hospital: ['full', null]
+  clinic: ['ground', 'residential']
+  doctors: ['ground', 'residential']
+  dentist: ['ground', 'residential']
+  pharmacy: ['ground', 'residential']
+  veterinary: ['ground', 'residential']
+
+  # FOOD/DRINK
+  restaurant: ['ground', 'residential']
+  cafe: ['ground', 'residential']
+  fast_food: ['ground', 'residential']
+  bar: ['ground', 'residential']
+  pub: ['ground', 'residential']
+  ice_cream: ['ground', 'residential']
+  food_court: ['ground', 'residential']
+
+  # RETAIL
+  supermarket: ['ground', 'residential']
+  convenience: ['ground', 'residential']
+  clothes: ['ground', 'residential']
+  shoes: ['ground', 'residential']
+  hardware: ['ground', 'residential']
+  doityourself: ['ground', 'residential']
+  electronics: ['ground', 'residential']
+  mobile_phone: ['ground', 'residential']
+  furniture: ['multi', 'residential']
+  department_store: ['full', null]
+  mall: ['full', null]
+  bakery: ['ground', 'residential']
+  butcher: ['ground', 'residential']
+  greengrocer: ['ground', 'residential']
+  deli: ['ground', 'residential']
+  alcohol: ['ground', 'residential']
+  wine: ['ground', 'residential']
+  books: ['ground', 'residential']
+  gift: ['ground', 'residential']
+  jewelry: ['ground', 'residential']
+  optician: ['ground', 'residential']
+
+  # SERVICES
+  bank: ['ground', 'office']
+  post_office: ['ground', 'office']
+  laundry: ['ground', 'residential']
+  dry_cleaning: ['ground', 'residential']
+  hairdresser: ['ground', 'residential']
+  beauty: ['ground', 'residential']
+  copyshop: ['ground', 'office']
+
+  # OFFICE
+  'yes': ['full', null]
+  company: ['full', null]
+  government: ['full', null]
+  insurance: ['full', null]
+  lawyer: ['ground', 'office']
+  coworking_space: ['multi', 'office']
+
+  # LEISURE
+  fitness_centre: ['multi', 'residential']
+  sports_centre: ['full', null]
+  swimming_pool: ['full', null]
+  pitch: ['full', null]
+
+  # ENTERTAINMENT
+  cinema: ['full', null]
+  theatre: ['full', null]
+  nightclub: ['ground', 'residential']
+  arts_centre: ['full', null]
+  community_centre: ['full', null]
+  museum: ['full', null]
+
+  # ACCOMMODATION
+  hotel: ['full', null]
+  hostel: ['full', null]
+  guest_house: ['full', null]
+
+  # INDUSTRIAL/WAREHOUSE
+  warehouse: ['full', null]
+  industrial: ['full', null]
+
+  # DEFAULT for unknown types by category
+  default_amenity: ['ground', 'residential']
+  default_shop: ['ground', 'residential']
+  default_office: ['full', null]
+  default_leisure: ['ground', 'residential']
+  default_tourism: ['full', null]
+
+# Building type to POI type mapping for buildings without matched POIs.
+building_type_map:
+  # Commercial/Retail
+  commercial: 'commercial'
+  retail: 'retail'
+  office: 'office'
+  supermarket: 'supermarket'
+  kiosk: 'convenience'
+
+  # Industrial
+  industrial: 'industrial'
+  warehouse: 'warehouse'
+
+  # Religious
+  church: 'place_of_worship'
+  chapel: 'place_of_worship'
+  cathedral: 'place_of_worship'
+  mosque: 'place_of_worship'
+  synagogue: 'place_of_worship'
+  temple: 'place_of_worship'
+  shrine: 'place_of_worship'
+  kingdom_hall: 'place_of_worship'
+
+  # Education
+  school: 'school'
+  university: 'university'
+  college: 'college'
+  kindergarten: 'kindergarten'
+
+  # Healthcare
+  hospital: 'hospital'
+
+  # Accommodation
+  hotel: 'hotel'
+  dormitory: 'residential'
+
+  # Residential
+  residential: 'residential'
+  apartments: 'residential'
+  house: 'residential'
+  detached: 'residential'
+  semidetached_house: 'residential'
+  terrace: 'residential'
+  bungalow: 'residential'
+
+  # Default
+  'yes': 'residential'
+
+# POI filtering rules
+# These lists determine which POIs are kept for the analysis.
+poi_filters:
+  # Amenities to exclude because they generally do not generate trips.
+  exclude_amenity:
+    - bench
+    - waste_basket
+    - waste_disposal
+    - recycling
+    - drinking_water
+    - telephone
+    - post_box
+    - letter_box
+    - vending_machine
+    - parking
+    - parking_space
+    - parking_entrance
+    - bicycle_parking
+    - motorcycle_parking
+    - bicycle_rental
+    - shelter
+    - toilets
+    - shower
+    - hunting_stand
+    - fountain
+    - clock
+    - photo_booth
+    - atm
+    - construction
+
+  # Leisure tags to include in the analysis. Only these will be kept.
+  keep_leisure:
+    - park
+    - playground
+    - pitch
+    - track
+    - sports_centre
+    - fitness_centre
+    - stadium
+    - ice_rink
+    - swimming_area
+    - dog_park
+    - nature_reserve
+    - golf_course

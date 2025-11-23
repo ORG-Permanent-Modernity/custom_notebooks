@@ -28,6 +28,13 @@ def match_pois_to_buildings(buildings_gdf, pois_gdf):
     if 'poi_id' not in pois_gdf.columns:
         raise ValueError("pois_gdf must have 'poi_id' column")
 
+    if buildings_gdf.crs is None or pois_gdf.crs is None:
+        raise ValueError("Both GeoDataFrames must have a defined CRS before matching")
+
+    # Align CRS to avoid silent mismatch issues
+    if buildings_gdf.crs != pois_gdf.crs:
+        pois_gdf = pois_gdf.to_crs(buildings_gdf.crs)
+
     # Keep only necessary columns for the join to minimize memory
     buildings_subset = buildings_gdf[['building_id', 'geometry']].copy()
     pois_subset = pois_gdf[['poi_id', 'geometry']].copy()

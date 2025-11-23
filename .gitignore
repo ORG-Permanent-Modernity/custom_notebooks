@@ -54,3 +54,5 @@ ENV/
 4step/data/buildings_brooklyn.geojson
 4step/data/unified_pois_brooklyn.csv
 4step/data/unified_pois_brooklyn.geojson
+4step/data/trip_generators_brooklyn.csv
+4step/data/trip_generators_brooklyn.geojson

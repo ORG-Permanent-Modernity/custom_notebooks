@@ -1,157 +1,51 @@
 """Brooklyn-specific heuristics for POI space allocation."""
 
 import pandas as pd
+import yaml
+from pathlib import Path
 
+class Heuristics:
+    """Load and manage heuristics from a YAML configuration file."""
 
-# POI space allocation heuristics
-# Format: {poi_type: (floors_occupied, remaining_use)}
-POI_HEURISTICS = {
-    # RELIGIOUS
-    'place_of_worship': ('full', None),
+    def __init__(self, config_path=None):
+        """
+        Initialize heuristics from a YAML file.
 
-    # EDUCATION
-    'school': ('full', None),
-    'kindergarten': ('full', None),
-    'college': ('full', None),
-    'university': ('full', None),
-    'library': ('full', None),
+        Parameters:
+        -----------
+        config_path : Path or str, optional
+            Path to the heuristics config file. If None, uses default location.
+        """
+        if config_path is None:
+            # Try to find the config file relative to this module
+            module_dir = Path(__file__).parent
+            config_path = module_dir.parent / 'settings' / 'heuristics.yaml'
 
-    # HEALTHCARE
-    'hospital': ('full', None),
-    'clinic': ('ground', 'residential'),
-    'doctors': ('ground', 'residential'),
-    'dentist': ('ground', 'residential'),
-    'pharmacy': ('ground', 'residential'),
-    'veterinary': ('ground', 'residential'),
+        self.config_path = Path(config_path)
+        self._load_config()
 
-    # FOOD/DRINK
-    'restaurant': ('ground', 'residential'),
-    'cafe': ('ground', 'residential'),
-    'fast_food': ('ground', 'residential'),
-    'bar': ('ground', 'residential'),
-    'pub': ('ground', 'residential'),
-    'ice_cream': ('ground', 'residential'),
-    'food_court': ('ground', 'residential'),
+    def _load_config(self):
+        """Load configuration from YAML file."""
+        if not self.config_path.exists():
+            raise FileNotFoundError(f"Heuristics config file not found: {self.config_path}")
 
-    # RETAIL
-    'supermarket': ('ground', 'residential'),
-    'convenience': ('ground', 'residential'),
-    'clothes': ('ground', 'residential'),
-    'shoes': ('ground', 'residential'),
-    'hardware': ('ground', 'residential'),
-    'doityourself': ('ground', 'residential'),
-    'electronics': ('ground', 'residential'),
-    'mobile_phone': ('ground', 'residential'),
-    'furniture': ('multi', 'residential'),
-    'department_store': ('full', None),
-    'mall': ('full', None),
-    'bakery': ('ground', 'residential'),
-    'butcher': ('ground', 'residential'),
-    'greengrocer': ('ground', 'residential'),
-    'deli': ('ground', 'residential'),
-    'alcohol': ('ground', 'residential'),
-    'wine': ('ground', 'residential'),
-    'books': ('ground', 'residential'),
-    'gift': ('ground', 'residential'),
-    'jewelry': ('ground', 'residential'),
-    'optician': ('ground', 'residential'),
+        with open(self.config_path, 'r') as f:
+            full_config = yaml.safe_load(f)
+        
+        self.poi_heuristics = full_config.get('poi_heuristics', {})
+        self.building_type_map = full_config.get('building_type_map', {})
+        
+        # Load POI filters
+        poi_filters = full_config.get('poi_filters', {})
+        self.exclude_amenity = set(poi_filters.get('exclude_amenity', []))
+        self.keep_leisure = set(poi_filters.get('keep_leisure', []))
 
-    # SERVICES
-    'bank': ('ground', 'office'),
-    'post_office': ('ground', 'office'),
-    'laundry': ('ground', 'residential'),
-    'dry_cleaning': ('ground', 'residential'),
-    'hairdresser': ('ground', 'residential'),
-    'beauty': ('ground', 'residential'),
-    'copyshop': ('ground', 'office'),
-
-    # OFFICE
-    'yes': ('full', None),
-    'company': ('full', None),
-    'government': ('full', None),
-    'insurance': ('full', None),
-    'lawyer': ('ground', 'office'),
-    'coworking_space': ('multi', 'office'),
-
-    # LEISURE
-    'fitness_centre': ('multi', 'residential'),
-    'sports_centre': ('full', None),
-    'swimming_pool': ('full', None),
-    'pitch': ('full', None),
-
-    # ENTERTAINMENT
-    'cinema': ('full', None),
-    'theatre': ('full', None),
-    'nightclub': ('ground', 'residential'),
-    'arts_centre': ('full', None),
-    'community_centre': ('full', None),
-    'museum': ('full', None),
-
-    # ACCOMMODATION
-    'hotel': ('full', None),
-    'hostel': ('full', None),
-    'guest_house': ('full', None),
-
-    # INDUSTRIAL/WAREHOUSE
-    'warehouse': ('full', None),
-    'industrial': ('full', None),
-
-    # DEFAULT for unknown types by category
-    'default_amenity': ('ground', 'residential'),
-    'default_shop': ('ground', 'residential'),
-    'default_office': ('full', None),
-    'default_leisure': ('ground', 'residential'),
-    'default_tourism': ('full', None),
-}
-
-# Building type to POI type mapping
-BUILDING_TYPE_MAP = {
-    # Commercial/Retail
-    'commercial': 'commercial',
-    'retail': 'retail',
-    'office': 'office',
-    'supermarket': 'supermarket',
-    'kiosk': 'convenience',
-
-    # Industrial
-    'industrial': 'industrial',
-    'warehouse': 'warehouse',
-
-    # Religious
-    'church': 'place_of_worship',
-    'chapel': 'place_of_worship',
-    'cathedral': 'place_of_worship',
-    'mosque': 'place_of_worship',
-    'synagogue': 'place_of_worship',
-    'temple': 'place_of_worship',
-    'shrine': 'place_of_worship',
-    'kingdom_hall': 'place_of_worship',
-
-    # Education
-    'school': 'school',
-    'university': 'university',
-    'college': 'college',
-    'kindergarten': 'kindergarten',
-
-    # Healthcare
-    'hospital': 'hospital',
-
-    # Accommodation
-    'hotel': 'hotel',
-    'dormitory': 'residential',
-
-    # Residential
-    'residential': 'residential',
-    'apartments': 'residential',
-    'house': 'residential',
-    'detached': 'residential',
-    'semidetached_house': 'residential',
-    'terrace': 'residential',
-    'bungalow': 'residential',
-
-    # Default
-    'yes': 'residential',
-}
+# Global instance for convenience
+_heuristics_instance = Heuristics()
+POI_HEURISTICS = _heuristics_instance.poi_heuristics
+BUILDING_TYPE_MAP = _heuristics_instance.building_type_map
+EXCLUDE_AMENITY = _heuristics_instance.exclude_amenity
+KEEP_LEISURE = _heuristics_instance.keep_leisure
 
 
 def get_poi_type(row):

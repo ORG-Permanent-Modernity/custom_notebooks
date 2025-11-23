@@ -5,6 +5,7 @@ import geopandas as gpd
 import pandas as pd
 import numpy as np
 from pathlib import Path
+from .config import CityConfig
 
 
 def load_buildings(place_name, cache_path=None, use_cache=True):
@@ -47,7 +48,7 @@ def load_buildings(place_name, cache_path=None, use_cache=True):
     return gdf
 
 
-def process_buildings(gdf, m2_to_sqft=10.7639, default_floors=3, avg_floor_height_m=3.0):
+def process_buildings(gdf: gpd.GeoDataFrame, config: CityConfig):
     """
     Process buildings to calculate square footage and estimate floors.
 
@@ -55,12 +56,8 @@ def process_buildings(gdf, m2_to_sqft=10.7639, default_floors=3, avg_floor_heigh
     -----------
     gdf : GeoDataFrame
         Buildings data
-    m2_to_sqft : float, default 10.7639
-        Conversion factor from square meters to square feet
-    default_floors : int, default 3
-        Default number of floors when no data available
-    avg_floor_height_m : float, default 3.0
-        Average floor height in meters for estimating floors from height
+    config : CityConfig
+        Configuration object with city-specific parameters
 
     Returns:
     --------
@@ -72,38 +69,34 @@ def process_buildings(gdf, m2_to_sqft=10.7639, default_floors=3, avg_floor_heigh
 
     # Calculate Footprint Area
     gdf_proj["footprint_m2"] = gdf_proj.geometry.area
-    gdf_proj["footprint_sqft"] = gdf_proj["footprint_m2"] * m2_to_sqft
+    gdf_proj["footprint_sqft"] = gdf_proj["footprint_m2"] * config.m2_to_sqft
 
     # Clean 'building:levels'
     if 'building:levels' in gdf_proj.columns:
-        gdf_proj['levels_clean'] = (
-            gdf_proj['building:levels'].astype(str)
-            .apply(pd.to_numeric, errors='coerce')
-        )
+        gdf_proj['levels_clean'] = pd.to_numeric(gdf_proj['building:levels'], errors='coerce')
     else:
         gdf_proj['levels_clean'] = np.nan
 
     # Clean 'height' to estimate levels
     if 'height' in gdf_proj.columns:
-        gdf_proj['height_clean'] = (
-            gdf_proj['height'].astype(str)
-            .str.replace('m', '', regex=False)
-            .apply(pd.to_numeric, errors='coerce')
+        gdf_proj['height_clean'] = pd.to_numeric(
+            gdf_proj['height'].astype(str).str.replace('m', '', regex=False),
+            errors='coerce'
         )
     else:
         gdf_proj['height_clean'] = np.nan
 
-    # Estimate number of floors
-    def estimate_floors(row):
-        """Estimate number of floors using available data."""
-        if pd.notna(row['levels_clean']) and row['levels_clean'] > 0:
-            return int(row['levels_clean'])
-        elif pd.notna(row['height_clean']) and row['height_clean'] > 0:
-            return max(1, int(row['height_clean'] / avg_floor_height_m))
-        else:
-            return default_floors
-
-    gdf_proj['estimated_floors'] = gdf_proj.apply(estimate_floors, axis=1)
+    # Vectorized estimation of number of floors
+    conditions = [
+        (gdf_proj['levels_clean'].notna()) & (gdf_proj['levels_clean'] > 0),
+        (gdf_proj['height_clean'].notna()) & (gdf_proj['height_clean'] > 0)
+    ]
+    choices = [
+        gdf_proj['levels_clean'],
+        (gdf_proj['height_clean'] / config.avg_floor_height_m).round().clip(lower=1)
+    ]
+    
+    gdf_proj['estimated_floors'] = np.select(conditions, choices, default=config.default_floors).astype(int)
 
     # Calculate Total Square Footage
     gdf_proj["total_sqft"] = gdf_proj["footprint_sqft"] * gdf_proj["estimated_floors"]

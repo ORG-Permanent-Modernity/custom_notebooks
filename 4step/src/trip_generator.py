@@ -1,10 +1,10 @@
-"""Functions for creating trip generator dataset with proper units for trip generation."""
+"""Optimized functions for creating trip generator dataset with proper units."""
 
 import geopandas as gpd
 import pandas as pd
+import numpy as np
 from .heuristics import BUILDING_TYPE_MAP
-from .config import get_city_config
-
+from .config import CityConfig
 
 # Land use type mapping from our categories to trip generation table
 TRIP_GEN_LAND_USE_MAP = {
@@ -69,67 +69,10 @@ TRIP_GEN_LAND_USE_MAP = {
     'museum': 'Museum',
 }
 
-def convert_to_trip_gen_units(row, city_name='brooklyn'):
+
+def create_trip_generators(processed_pois_df, buildings_gdf, config: CityConfig):
     """
-    Convert square footage to appropriate units for trip generation.
-
-    Parameters:
-    -----------
-    row : dict-like
-        Must contain 'land_use_type' and 'sqft' keys
-    city_name : str
-        City name for configuration (default: 'brooklyn')
-
-    Returns:
-    --------
-    tuple
-        (value, unit_type, trip_gen_category)
-    """
-    # Get city-specific configuration
-    config = get_city_config(city_name)
-
-    land_use_type = row['land_use_type']
-    sqft = row['sqft']
-
-    # Get the trip gen category
-    trip_gen_category = TRIP_GEN_LAND_USE_MAP.get(land_use_type, 'Local Retail')
-
-    # Convert based on category using config values
-    if 'Residential' in trip_gen_category:
-        # Convert to dwelling units
-        value = sqft / config.sqft_per_du
-        unit = 'DU'
-    elif trip_gen_category == 'Hotel':
-        # Convert to rooms
-        value = sqft / config.sqft_per_hotel_room
-        unit = 'rooms'
-    elif 'Park Space' in trip_gen_category:
-        # Convert to acres
-        value = sqft * config.sqft_to_acres
-        unit = 'acres'
-    elif 'School' in trip_gen_category or 'Daycare' in trip_gen_category:
-        # For schools/daycare, keep as 1000 sf (rates are per 1000 sf for daycare)
-        if 'School' in trip_gen_category:
-            value = sqft / config.sqft_per_student  # Convert to students
-            unit = 'students'
-        else:
-            value = sqft / 1000
-            unit = '1000_sf'
-    elif trip_gen_category == 'Cineplex':
-        # Convert to seats
-        value = sqft / config.sqft_per_cinema_seat
-        unit = 'seats'
-    else:
-        # Most categories use per 1000 sf
-        value = sqft / 1000
-        unit = '1000_sf'
-
-    return value, unit, trip_gen_category
-
-
-def create_trip_generators(processed_pois_df, buildings_gdf, city_name='brooklyn'):
-    """
-    Create unified trip generator dataset with proper naming.
+    Create unified trip generator dataset using vectorized operations.
 
     Parameters:
     -----------
@@ -137,70 +80,115 @@ def create_trip_generators(processed_pois_df, buildings_gdf, city_name='brooklyn
         Processed POIs with square footage allocations
     buildings_gdf : GeoDataFrame
         Buildings data with building_id and total_sqft
+    config : CityConfig
+        Configuration object with city-specific parameters
 
     Returns:
     --------
     GeoDataFrame
         Unified trip generator dataset with proper units
     """
-    trip_generators = []
+    print("Creating trip generators using optimized processing...")
 
-    # Add POIs from processed_df (includes both actual POIs and inferred remaining)
-    for idx, row in processed_pois_df.iterrows():
-        remaining_flag = row.get('is_remaining', False)
-        is_remaining = bool(remaining_flag) if pd.notna(remaining_flag) else False
+    # Process POIs data using vectorized operations
+    pois_data = processed_pois_df.copy()
+    remaining_series = pois_data.get('is_remaining')
+    if isinstance(remaining_series, pd.Series):
+        is_remaining = remaining_series.fillna(False).astype(bool)
+    else:
+        is_remaining = pd.Series(False, index=pois_data.index)
+    pois_data['source'] = np.where(is_remaining, 'inferred_remaining', 'osm_poi')
+    pois_data['land_use_type'] = pois_data['poi_type']
+    pois_data['land_use_category'] = pois_data['poi_category']
+    pois_data['sqft'] = pois_data['poi_sqft']
 
-        trip_generators.append({
-            'source': 'inferred_remaining' if is_remaining else 'osm_poi',
-            'building_id': row['building_id'],
-            'land_use_type': row['poi_type'],  # Renamed from poi_type
-            'land_use_category': row['poi_category'],
-            'name': row['name'],
-            'sqft': row['poi_sqft'],
-            'geometry': row['geometry']
-        })
+    # Keep only needed columns
+    pois_generators = pois_data[['source', 'building_id', 'land_use_type',
+                                 'land_use_category', 'name', 'sqft', 'geometry']].copy()
 
-    # Handle buildings without any matched POI
+    # Handle buildings without POIs using vectorized operations
     buildings_with_poi = set(processed_pois_df['building_id'].unique())
-    buildings_without_poi = buildings_gdf[~buildings_gdf['building_id'].isin(buildings_with_poi)]
+    buildings_without_poi = buildings_gdf[~buildings_gdf['building_id'].isin(buildings_with_poi)].copy()
 
     print(f"Buildings with POIs: {len(buildings_with_poi):,}")
     print(f"Buildings without POI: {len(buildings_without_poi):,}")
 
-    # For buildings without POIs, use building=* tag to infer use
-    # Project to UTM for accurate centroid calculation if not empty
     if len(buildings_without_poi) > 0:
+        # Project to UTM for accurate centroid calculation (vectorized)
         buildings_utm = buildings_without_poi.to_crs(buildings_without_poi.estimate_utm_crs())
-        centroids_utm = buildings_utm.geometry.centroid
-        centroids_4326 = gpd.GeoSeries(centroids_utm, crs=buildings_utm.crs).to_crs("EPSG:4326")
+        buildings_without_poi['geometry'] = buildings_utm.geometry.centroid.to_crs("EPSG:4326")
 
-        for idx, (bldg_idx, bldg) in enumerate(buildings_without_poi.iterrows()):
-            centroid = centroids_4326.iloc[idx]
-            building_tag = str(bldg.get('building', 'yes')).lower()
-            land_use_type = BUILDING_TYPE_MAP.get(building_tag, 'residential')
+        # Vectorized building tag processing; fall back to 'yes' even if column is missing
+        if 'building' in buildings_without_poi.columns:
+            building_series = buildings_without_poi['building'].fillna('yes')
+        else:
+            building_series = pd.Series('yes', index=buildings_without_poi.index)
 
-            trip_generators.append({
-                'source': 'building_inferred',
-                'building_id': bldg['building_id'],
-                'land_use_type': land_use_type,  # Renamed from poi_type
-                'land_use_category': 'building',
-                'name': f"{land_use_type.replace('_', ' ').title()}",
-                'sqft': bldg['total_sqft'],
-                'geometry': centroid
-            })
+        buildings_without_poi['building_tag'] = building_series.astype(str).str.lower()
+        buildings_without_poi['land_use_type'] = buildings_without_poi['building_tag'].map(BUILDING_TYPE_MAP).fillna('residential')
+
+        # Create generator records for buildings without POIs
+        building_generators = pd.DataFrame({
+            'source': 'building_inferred',
+            'building_id': buildings_without_poi['building_id'],
+            'land_use_type': buildings_without_poi['land_use_type'],
+            'land_use_category': 'building',
+            'name': buildings_without_poi['land_use_type'].str.replace('_', ' ').str.title(),
+            'sqft': buildings_without_poi['total_sqft'],
+            'geometry': buildings_without_poi['geometry']
+        })
+
+        # Combine POI generators and building generators
+        all_generators = pd.concat([pois_generators, building_generators], ignore_index=True)
+    else:
+        all_generators = pois_generators
 
     # Create GeoDataFrame
-    generators_gdf = gpd.GeoDataFrame(trip_generators, crs="EPSG:4326")
-    generators_gdf['generator_id'] = range(len(generators_gdf))  # Renamed from unified_poi_id
+    generators_gdf = gpd.GeoDataFrame(all_generators, crs="EPSG:4326")
+    generators_gdf['generator_id'] = range(len(generators_gdf))
 
-    # Add trip generation units
-    units_data = generators_gdf.apply(
-        lambda r: convert_to_trip_gen_units(r, city_name=city_name),
-        axis=1
-    )
-    generators_gdf['trip_gen_value'] = units_data.apply(lambda x: x[0])
-    generators_gdf['trip_gen_unit'] = units_data.apply(lambda x: x[1])
-    generators_gdf['trip_gen_category'] = units_data.apply(lambda x: x[2])
+    # Add trip generation units using vectorized operations
+    print("Converting to trip generation units...")
+
+    # Initialize columns
+    generators_gdf['trip_gen_value'] = 0.0
+    generators_gdf['trip_gen_unit'] = '1000_sf'
+    generators_gdf['trip_gen_category'] = generators_gdf['land_use_type'].map(TRIP_GEN_LAND_USE_MAP).fillna('Local Retail')
+
+    # Vectorized unit conversions by category
+    # Residential
+    residential_mask = generators_gdf['trip_gen_category'].str.contains('Residential', na=False)
+    generators_gdf.loc[residential_mask, 'trip_gen_value'] = generators_gdf.loc[residential_mask, 'sqft'] / config.sqft_per_du
+    generators_gdf.loc[residential_mask, 'trip_gen_unit'] = 'DU'
+
+    # Hotel
+    hotel_mask = generators_gdf['trip_gen_category'] == 'Hotel'
+    generators_gdf.loc[hotel_mask, 'trip_gen_value'] = generators_gdf.loc[hotel_mask, 'sqft'] / config.sqft_per_hotel_room
+    generators_gdf.loc[hotel_mask, 'trip_gen_unit'] = 'rooms'
+
+    # Parks
+    park_mask = generators_gdf['trip_gen_category'].str.contains('Park Space', na=False)
+    generators_gdf.loc[park_mask, 'trip_gen_value'] = generators_gdf.loc[park_mask, 'sqft'] * config.sqft_to_acres
+    generators_gdf.loc[park_mask, 'trip_gen_unit'] = 'acres'
+
+    # Schools
+    school_mask = generators_gdf['trip_gen_category'].str.contains('School', na=False)
+    generators_gdf.loc[school_mask, 'trip_gen_value'] = generators_gdf.loc[school_mask, 'sqft'] / config.sqft_per_student
+    generators_gdf.loc[school_mask, 'trip_gen_unit'] = 'students'
+
+    # Daycare
+    daycare_mask = generators_gdf['trip_gen_category'].str.contains('Daycare', na=False)
+    generators_gdf.loc[daycare_mask, 'trip_gen_value'] = generators_gdf.loc[daycare_mask, 'sqft'] / 1000
+    generators_gdf.loc[daycare_mask, 'trip_gen_unit'] = '1000_sf'
+
+    # Cineplex
+    cinema_mask = generators_gdf['trip_gen_category'] == 'Cineplex'
+    generators_gdf.loc[cinema_mask, 'trip_gen_value'] = generators_gdf.loc[cinema_mask, 'sqft'] / config.sqft_per_cinema_seat
+    generators_gdf.loc[cinema_mask, 'trip_gen_unit'] = 'seats'
+
+    # Default (per 1000 sf) - everything else
+    other_mask = ~(residential_mask | hotel_mask | park_mask | school_mask | daycare_mask | cinema_mask)
+    generators_gdf.loc[other_mask, 'trip_gen_value'] = generators_gdf.loc[other_mask, 'sqft'] / 1000
 
     print(f"\n=== Unified Trip Generator Dataset ===")
     print(f"Total generators: {len(generators_gdf):,}")
@@ -208,8 +196,9 @@ def create_trip_generators(processed_pois_df, buildings_gdf, city_name='brooklyn
 
     # Breakdown by source
     print(f"\nBy Source:")
-    for source, group in generators_gdf.groupby('source'):
-        print(f"  {source}: {len(group):,} generators, {group['sqft'].sum():,.0f} sqft")
+    source_summary = generators_gdf.groupby('source')['sqft'].agg(['count', 'sum'])
+    for source, row in source_summary.iterrows():
+        print(f"  {source}: {row['count']:,} generators, {row['sum']:,.0f} sqft")
 
     return generators_gdf
 
