@@ -56,7 +56,7 @@ def get_poi_type(row):
     return ('unknown', 'unknown')
 
 
-def apply_heuristics_to_pois(pois_matched, buildings_gdf):
+def apply_heuristics_to_pois(pois_matched, buildings_gdf, verbose=True):
     """
     Apply heuristics to estimate POI area and remaining building usage.
 
@@ -66,6 +66,8 @@ def apply_heuristics_to_pois(pois_matched, buildings_gdf):
         POIs matched to buildings
     buildings_gdf : GeoDataFrame
         Buildings data with building_id, total_sqft, footprint_sqft, estimated_floors
+    verbose : bool
+        If True, print detailed progress messages
 
     Returns:
     --------
@@ -79,8 +81,12 @@ def apply_heuristics_to_pois(pois_matched, buildings_gdf):
     pois_by_building = pois_matched.groupby('building_id')
 
     processed_pois = []
+    unknown_poi_types = set()  # Track unknown POI types for logging
 
     for building_id, building_pois in pois_by_building:
+        # Handle potential NaN building_id
+        if pd.isna(building_id):
+            continue
         building_id = int(building_id)
         building_data = buildings_lookup.get(building_id)
 
@@ -100,6 +106,8 @@ def apply_heuristics_to_pois(pois_matched, buildings_gdf):
             if poi_type in POI_HEURISTICS:
                 floors_rule, remaining_use = POI_HEURISTICS[poi_type]
             else:
+                # Track unknown POI types
+                unknown_poi_types.add((poi_category, poi_type))
                 default_key = f'default_{poi_category}'
                 if default_key in POI_HEURISTICS:
                     floors_rule, remaining_use = POI_HEURISTICS[default_key]
@@ -208,5 +216,11 @@ def apply_heuristics_to_pois(pois_matched, buildings_gdf):
 
     processed_df = pd.DataFrame(processed_pois)
     print(f"Processed POIs (including inferred remaining): {len(processed_df):,}")
+
+    # Log unknown POI types if any were found
+    if unknown_poi_types and verbose:
+        print(f"\nINFO: Found {len(unknown_poi_types)} unknown POI type(s) (using defaults):")
+        for category, poi_type in sorted(unknown_poi_types):
+            print(f"  {category}: {poi_type}")
 
     return processed_df

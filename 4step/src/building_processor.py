@@ -8,7 +8,7 @@ from pathlib import Path
 from .config import CityConfig
 
 
-def load_buildings(place_name, cache_path=None, use_cache=True):
+def load_buildings(place_name, cache_path=None, use_cache=True, verbose=True):
     """
     Load buildings from OSM or cache.
 
@@ -20,6 +20,8 @@ def load_buildings(place_name, cache_path=None, use_cache=True):
         Path to cache file (GeoJSON)
     use_cache : bool, default True
         Whether to use cached data if available
+    verbose : bool
+        If True, print detailed progress messages
 
     Returns:
     --------
@@ -27,19 +29,34 @@ def load_buildings(place_name, cache_path=None, use_cache=True):
         Buildings with polygon geometries
     """
     if use_cache and cache_path and Path(cache_path).exists():
-        print(f"Loading buildings from cache: {cache_path}")
+        if verbose:
+            print(f"Loading buildings from cache: {cache_path}")
         gdf = gpd.read_file(cache_path)
-        print(f"Loaded {len(gdf):,} buildings from cache")
+        print(f"Loaded {len(gdf):,} buildings")
     else:
-        print("Downloading buildings from OSM...")
+        if verbose:
+            print("Downloading buildings from OSM...")
         tags = {"building": True}
-        gdf = ox.features_from_place(place_name, tags)
+
+        # Add error handling for OSM download failures
+        try:
+            gdf = ox.features_from_place(place_name, tags)
+        except Exception as e:
+            print(f"ERROR: Failed to download buildings from OSM: {e}")
+            if cache_path and Path(cache_path).exists():
+                print("Falling back to cache...")
+                gdf = gpd.read_file(cache_path)
+                print(f"Loaded {len(gdf):,} buildings from fallback cache")
+            else:
+                raise RuntimeError(f"Could not download buildings from OSM and no cache available: {e}")
 
         # Save to cache if path provided
         if cache_path:
             Path(cache_path).parent.mkdir(exist_ok=True, parents=True)
             gdf.to_file(cache_path, driver="GeoJSON")
-            print(f"Downloaded {len(gdf):,} buildings, saved to: {cache_path}")
+            print(f"Downloaded {len(gdf):,} buildings")
+            if verbose:
+                print(f"Saved to cache: {cache_path}")
 
     # Keep polygonal footprints (Polygon or MultiPolygon) and drop empties
     gdf = gdf[gdf.geometry.notna()]
@@ -48,7 +65,7 @@ def load_buildings(place_name, cache_path=None, use_cache=True):
     return gdf
 
 
-def process_buildings(gdf: gpd.GeoDataFrame, config: CityConfig):
+def process_buildings(gdf: gpd.GeoDataFrame, config: CityConfig, verbose=True):
     """
     Process buildings to calculate square footage and estimate floors.
 
@@ -58,6 +75,8 @@ def process_buildings(gdf: gpd.GeoDataFrame, config: CityConfig):
         Buildings data
     config : CityConfig
         Configuration object with city-specific parameters
+    verbose : bool
+        If True, print detailed progress messages
 
     Returns:
     --------
@@ -101,6 +120,27 @@ def process_buildings(gdf: gpd.GeoDataFrame, config: CityConfig):
     # Calculate Total Square Footage
     gdf_proj["total_sqft"] = gdf_proj["footprint_sqft"] * gdf_proj["estimated_floors"]
 
+    # Add validation for unrealistic building sizes
+    large_buildings = gdf_proj['total_sqft'] > 1_000_000
+    if large_buildings.any():
+        print(f"WARNING: {large_buildings.sum():,} buildings exceed 1M sqft")
+        if verbose:
+            # Show statistics of large buildings
+            large_bldg_stats = gdf_proj.loc[large_buildings, 'total_sqft'].describe()
+            print(f"  Large buildings stats: max={large_bldg_stats['max']:,.0f} sqft, mean={large_bldg_stats['mean']:,.0f} sqft")
+
+    very_large_buildings = gdf_proj['total_sqft'] > 5_000_000
+    if very_large_buildings.any():
+        print(f"WARNING: {very_large_buildings.sum():,} buildings exceed 5M sqft (likely data errors)")
+
+    # Check for unrealistic floor counts
+    high_floors = gdf_proj['estimated_floors'] > 100
+    if high_floors.any():
+        print(f"WARNING: {high_floors.sum():,} buildings have >100 floors (likely data errors)")
+        if verbose:
+            max_floors = gdf_proj.loc[high_floors, 'estimated_floors'].max()
+            print(f"  Maximum floor count: {max_floors}")
+
     # Prepare final building data
     useful_columns = ["building", "footprint_sqft", "estimated_floors", "total_sqft", "geometry"]
     buildings_gdf = gdf_proj[[c for c in useful_columns if c in gdf_proj.columns]].copy()
@@ -110,12 +150,12 @@ def process_buildings(gdf: gpd.GeoDataFrame, config: CityConfig):
     buildings_gdf = buildings_gdf.reset_index()
     buildings_gdf['building_id'] = range(len(buildings_gdf))
 
-    print(f"\nBuildings ready: {len(buildings_gdf):,}")
+    print(f"Buildings processed: {len(buildings_gdf):,}")
 
     return buildings_gdf
 
 
-def save_buildings(buildings_gdf, output_path):
+def save_buildings(buildings_gdf, output_path, verbose=True):
     """
     Save processed buildings to file.
 
@@ -125,6 +165,9 @@ def save_buildings(buildings_gdf, output_path):
         Processed buildings data
     output_path : Path or str
         Output file path (supports GeoJSON)
+    verbose : bool
+        If True, print save confirmation
     """
     buildings_gdf.to_file(output_path, driver="GeoJSON")
-    print(f"Saved buildings to: {output_path}")
+    if verbose:
+        print(f"Saved buildings to: {output_path}")

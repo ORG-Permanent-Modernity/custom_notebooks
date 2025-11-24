@@ -4,7 +4,7 @@ import geopandas as gpd
 import pandas as pd
 
 
-def match_pois_to_buildings(buildings_gdf, pois_gdf):
+def match_pois_to_buildings(buildings_gdf, pois_gdf, verbose=True):
     """
     Match POIs to buildings using vectorized spatial join.
 
@@ -14,13 +14,16 @@ def match_pois_to_buildings(buildings_gdf, pois_gdf):
         Buildings with polygon geometries and building_id column
     pois_gdf : GeoDataFrame
         POIs with point geometries and poi_id column
+    verbose : bool
+        If True, print detailed progress messages
 
     Returns:
     --------
     DataFrame
         Matches with poi_id and building_id columns
     """
-    print("Matching POIs to buildings using spatial join...")
+    if verbose:
+        print("Matching POIs to buildings using spatial join...")
 
     # Ensure we have the required columns
     if 'building_id' not in buildings_gdf.columns:
@@ -38,6 +41,11 @@ def match_pois_to_buildings(buildings_gdf, pois_gdf):
     # Keep only necessary columns for the join to minimize memory
     buildings_subset = buildings_gdf[['building_id', 'geometry']].copy()
     pois_subset = pois_gdf[['poi_id', 'geometry']].copy()
+
+    # Create spatial index for performance (triggers automatic index creation)
+    if verbose and len(buildings_subset) > 10000:
+        print("  Building spatial index for faster matching...")
+    _ = buildings_subset.sindex  # This creates and caches the spatial index
 
     # Perform spatial join (points in polygons)
     # Using 'within' predicate for point-in-polygon test
@@ -67,7 +75,7 @@ def match_pois_to_buildings(buildings_gdf, pois_gdf):
     return matches_df
 
 
-def join_matches_to_pois(pois_gdf, matches_df):
+def join_matches_to_pois(pois_gdf, matches_df, verbose=True):
     """
     Join match information back to POIs.
 
@@ -77,6 +85,8 @@ def join_matches_to_pois(pois_gdf, matches_df):
         Original POIs data
     matches_df : DataFrame
         POI to building matches
+    verbose : bool
+        If True, print detailed progress messages
 
     Returns:
     --------
@@ -85,11 +95,12 @@ def join_matches_to_pois(pois_gdf, matches_df):
     """
     pois_matched = pois_gdf.merge(matches_df, on='poi_id', how='left')
     pois_matched = pois_matched[pois_matched['building_id'].notna()].copy()
-    print(f"POIs with building matches: {len(pois_matched):,}")
+    if verbose:
+        print(f"POIs with building matches: {len(pois_matched):,}")
     return pois_matched
 
 
-def match_pois_to_buildings_batch(buildings_gdf, pois_gdf, batch_size=50000):
+def match_pois_to_buildings_batch(buildings_gdf, pois_gdf, batch_size=50000, verbose=True):
     """
     Match POIs to buildings in batches for very large datasets.
 
@@ -101,6 +112,8 @@ def match_pois_to_buildings_batch(buildings_gdf, pois_gdf, batch_size=50000):
         POIs with point geometries and poi_id column
     batch_size : int
         Number of POIs to process at once
+    verbose : bool
+        If True, print detailed progress messages
 
     Returns:
     --------
@@ -109,9 +122,10 @@ def match_pois_to_buildings_batch(buildings_gdf, pois_gdf, batch_size=50000):
     """
     if len(pois_gdf) <= batch_size:
         # Small enough to process at once
-        return match_pois_to_buildings(buildings_gdf, pois_gdf)
+        return match_pois_to_buildings(buildings_gdf, pois_gdf, verbose=verbose)
 
-    print(f"Processing {len(pois_gdf):,} POIs in batches of {batch_size:,}...")
+    if verbose:
+        print(f"Processing {len(pois_gdf):,} POIs in batches of {batch_size:,}...")
 
     all_matches = []
     n_batches = (len(pois_gdf) + batch_size - 1) // batch_size
@@ -121,18 +135,19 @@ def match_pois_to_buildings_batch(buildings_gdf, pois_gdf, batch_size=50000):
         end_idx = min((i + 1) * batch_size, len(pois_gdf))
         batch = pois_gdf.iloc[start_idx:end_idx]
 
-        print(f"  Batch {i+1}/{n_batches}: POIs {start_idx:,} to {end_idx:,}")
-        batch_matches = match_pois_to_buildings(buildings_gdf, batch)
+        if verbose:
+            print(f"  Batch {i+1}/{n_batches}: POIs {start_idx:,} to {end_idx:,}")
+        batch_matches = match_pois_to_buildings(buildings_gdf, batch, verbose=False)  # Avoid nested verbose output
         all_matches.append(batch_matches)
 
     # Combine all batches
     matches_df = pd.concat(all_matches, ignore_index=True)
 
-    # Final statistics
+    # Final statistics - always print this summary
     matched_count = matches_df['building_id'].notna().sum()
     total_pois = len(pois_gdf)
     match_rate = (matched_count / total_pois * 100) if total_pois > 0 else 0
 
-    print(f"\nTotal: Matched {matched_count:,} POIs to buildings ({match_rate:.1f}%)")
+    print(f"Total: Matched {matched_count:,} POIs to buildings ({match_rate:.1f}%)")
 
     return matches_df

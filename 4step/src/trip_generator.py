@@ -70,7 +70,7 @@ TRIP_GEN_LAND_USE_MAP = {
 }
 
 
-def create_trip_generators(processed_pois_df, buildings_gdf, config: CityConfig):
+def create_trip_generators(processed_pois_df, buildings_gdf, config: CityConfig, verbose=True):
     """
     Create unified trip generator dataset using vectorized operations.
 
@@ -82,19 +82,23 @@ def create_trip_generators(processed_pois_df, buildings_gdf, config: CityConfig)
         Buildings data with building_id and total_sqft
     config : CityConfig
         Configuration object with city-specific parameters
+    verbose : bool
+        If True, print detailed progress messages
 
     Returns:
     --------
     GeoDataFrame
         Unified trip generator dataset with proper units
     """
-    print("Creating trip generators using optimized processing...")
+    if verbose:
+        print("Creating trip generators using optimized processing...")
 
     # Process POIs data using vectorized operations
     pois_data = processed_pois_df.copy()
     remaining_series = pois_data.get('is_remaining')
     if isinstance(remaining_series, pd.Series):
-        is_remaining = remaining_series.fillna(False).astype(bool)
+        # Fix for FutureWarning: use infer_objects to handle downcasting
+        is_remaining = remaining_series.fillna(False).infer_objects(copy=False).astype(bool)
     else:
         is_remaining = pd.Series(False, index=pois_data.index)
     pois_data['source'] = np.where(is_remaining, 'inferred_remaining', 'osm_poi')
@@ -110,8 +114,9 @@ def create_trip_generators(processed_pois_df, buildings_gdf, config: CityConfig)
     buildings_with_poi = set(processed_pois_df['building_id'].unique())
     buildings_without_poi = buildings_gdf[~buildings_gdf['building_id'].isin(buildings_with_poi)].copy()
 
-    print(f"Buildings with POIs: {len(buildings_with_poi):,}")
-    print(f"Buildings without POI: {len(buildings_without_poi):,}")
+    if verbose:
+        print(f"Buildings with POIs: {len(buildings_with_poi):,}")
+        print(f"Buildings without POI: {len(buildings_without_poi):,}")
 
     if len(buildings_without_poi) > 0:
         # Project to UTM for accurate centroid calculation (vectorized)
@@ -148,7 +153,8 @@ def create_trip_generators(processed_pois_df, buildings_gdf, config: CityConfig)
     generators_gdf['generator_id'] = range(len(generators_gdf))
 
     # Add trip generation units using vectorized operations
-    print("Converting to trip generation units...")
+    if verbose:
+        print("Converting to trip generation units...")
 
     # Initialize columns
     generators_gdf['trip_gen_value'] = 0.0
@@ -190,20 +196,24 @@ def create_trip_generators(processed_pois_df, buildings_gdf, config: CityConfig)
     other_mask = ~(residential_mask | hotel_mask | park_mask | school_mask | daycare_mask | cinema_mask)
     generators_gdf.loc[other_mask, 'trip_gen_value'] = generators_gdf.loc[other_mask, 'sqft'] / 1000
 
-    print(f"\n=== Unified Trip Generator Dataset ===")
-    print(f"Total generators: {len(generators_gdf):,}")
-    print(f"Total sqft: {generators_gdf['sqft'].sum():,.0f}")
+    # Always print high-level summary
+    print(f"Trip Generators Created: {len(generators_gdf):,} generators, {generators_gdf['sqft'].sum():,.0f} total sqft")
 
-    # Breakdown by source
-    print(f"\nBy Source:")
-    source_summary = generators_gdf.groupby('source')['sqft'].agg(['count', 'sum'])
-    for source, row in source_summary.iterrows():
-        print(f"  {source}: {row['count']:,} generators, {row['sum']:,.0f} sqft")
+    if verbose:
+        print(f"\n=== Detailed Trip Generator Dataset ===")
+        print(f"Total generators: {len(generators_gdf):,}")
+        print(f"Total sqft: {generators_gdf['sqft'].sum():,.0f}")
+
+        # Breakdown by source
+        print(f"\nBy Source:")
+        source_summary = generators_gdf.groupby('source')['sqft'].agg(['count', 'sum'])
+        for source, row in source_summary.iterrows():
+            print(f"  {source}: {row['count']:,} generators, {row['sum']:,.0f} sqft")
 
     return generators_gdf
 
 
-def save_trip_generators(generators_gdf, geojson_path=None, csv_path=None):
+def save_trip_generators(generators_gdf, geojson_path=None, csv_path=None, verbose=True):
     """
     Save trip generator dataset to files.
 
@@ -215,17 +225,21 @@ def save_trip_generators(generators_gdf, geojson_path=None, csv_path=None):
         Path to save GeoJSON file
     csv_path : str, optional
         Path to save CSV file
+    verbose : bool
+        If True, print save confirmations
     """
     if geojson_path:
         generators_gdf.to_file(geojson_path, driver="GeoJSON")
-        print(f"Saved: {geojson_path}")
+        if verbose:
+            print(f"Saved: {geojson_path}")
 
     if csv_path:
         generators_csv = generators_gdf.drop(columns=['geometry']).copy()
         generators_csv['lat'] = generators_gdf.geometry.y
         generators_csv['lon'] = generators_gdf.geometry.x
         generators_csv.to_csv(csv_path, index=False)
-        print(f"Saved: {csv_path}")
+        if verbose:
+            print(f"Saved: {csv_path}")
 
 
 def print_trip_gen_summary(generators_gdf):

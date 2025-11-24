@@ -8,7 +8,7 @@ from .heuristics import EXCLUDE_AMENITY, KEEP_LEISURE
 
 
 
-def load_pois(place_name, cache_path=None, use_cache=True):
+def load_pois(place_name, cache_path=None, use_cache=True, verbose=True):
     """
     Load POIs from OSM or cache.
 
@@ -20,6 +20,8 @@ def load_pois(place_name, cache_path=None, use_cache=True):
         Path to cache file (GeoJSON)
     use_cache : bool, default True
         Whether to use cached data if available
+    verbose : bool
+        If True, print detailed progress messages
 
     Returns:
     --------
@@ -27,11 +29,13 @@ def load_pois(place_name, cache_path=None, use_cache=True):
         Raw POIs data
     """
     if use_cache and cache_path and Path(cache_path).exists():
-        print(f"Loading POIs from cache: {cache_path}")
+        if verbose:
+            print(f"Loading POIs from cache: {cache_path}")
         pois_raw = gpd.read_file(cache_path)
-        print(f"Loaded {len(pois_raw):,} POIs from cache")
+        print(f"Loaded {len(pois_raw):,} POIs")
     else:
-        print("Downloading POIs from OSM...")
+        if verbose:
+            print("Downloading POIs from OSM...")
         poi_tags = {
             'amenity': True,
             'shop': True,
@@ -41,18 +45,31 @@ def load_pois(place_name, cache_path=None, use_cache=True):
             'healthcare': True,
             'public_transport': True,
         }
-        pois_raw = ox.features_from_place(place_name, poi_tags)
+
+        # Add error handling for OSM download failures
+        try:
+            pois_raw = ox.features_from_place(place_name, poi_tags)
+        except Exception as e:
+            print(f"ERROR: Failed to download POIs from OSM: {e}")
+            if cache_path and Path(cache_path).exists():
+                print("Falling back to cache...")
+                pois_raw = gpd.read_file(cache_path)
+                print(f"Loaded {len(pois_raw):,} POIs from fallback cache")
+            else:
+                raise RuntimeError(f"Could not download POIs from OSM and no cache available: {e}")
 
         # Save to cache if path provided
         if cache_path:
             Path(cache_path).parent.mkdir(exist_ok=True, parents=True)
             pois_raw.to_file(cache_path, driver="GeoJSON")
-            print(f"Downloaded {len(pois_raw):,} POIs, saved to: {cache_path}")
+            print(f"Downloaded {len(pois_raw):,} POIs")
+            if verbose:
+                print(f"Saved to cache: {cache_path}")
 
     return pois_raw
 
 
-def process_pois(pois_raw, filter_non_trip_generators=True):
+def process_pois(pois_raw, filter_non_trip_generators=True, verbose=True):
     """
     Process POIs: filter and get centroids.
 
@@ -62,6 +79,8 @@ def process_pois(pois_raw, filter_non_trip_generators=True):
         Raw POI data
     filter_non_trip_generators : bool, default True
         Whether to filter out non-trip-generating POIs
+    verbose : bool
+        If True, print detailed progress messages
 
     Returns:
     --------
@@ -70,8 +89,9 @@ def process_pois(pois_raw, filter_non_trip_generators=True):
     """
     # Filter POIs if requested
     if filter_non_trip_generators:
-        print(f"POIs before filtering: {len(pois_raw):,}")
-        
+        if verbose:
+            print(f"POIs before filtering: {len(pois_raw):,}")
+
         # Vectorized filtering logic
         keep_mask = pd.Series(False, index=pois_raw.index)
 
@@ -89,7 +109,8 @@ def process_pois(pois_raw, filter_non_trip_generators=True):
             keep_mask |= (pois_raw['amenity'].notna() & ~pois_raw['amenity'].isin(EXCLUDE_AMENITY))
 
         pois_filtered = pois_raw[keep_mask].copy()
-        print(f"POIs after filtering: {len(pois_filtered):,}")
+        if verbose:
+            print(f"POIs after filtering: {len(pois_filtered):,}")
     else:
         pois_filtered = pois_raw.copy()
 
@@ -109,12 +130,12 @@ def process_pois(pois_raw, filter_non_trip_generators=True):
     pois_gdf = pois_gdf.reset_index()
     pois_gdf['poi_id'] = range(len(pois_gdf))
 
-    print(f"\nPOIs ready: {len(pois_gdf):,}")
+    print(f"POIs processed: {len(pois_gdf):,}")
 
     return pois_gdf
 
 
-def save_pois(pois_gdf, output_path):
+def save_pois(pois_gdf, output_path, verbose=True):
     """
     Save processed POIs to file.
 
@@ -124,6 +145,9 @@ def save_pois(pois_gdf, output_path):
         Processed POIs data
     output_path : Path or str
         Output file path
+    verbose : bool
+        If True, print save confirmation
     """
     pois_gdf.to_file(output_path, driver="GeoJSON")
-    print(f"Saved POIs to: {output_path}")
+    if verbose:
+        print(f"Saved POIs to: {output_path}")
