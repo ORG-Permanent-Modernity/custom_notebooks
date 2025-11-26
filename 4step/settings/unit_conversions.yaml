@@ -1,0 +1,15 @@
+# Universal Unit Conversions
+# Physical constants for unit conversions - these never change.
+
+unit_conversions:
+  # Area conversions
+  m2_to_sqft: 10.7639       # 1 square meter = 10.7639 square feet
+  sqft_to_m2: 0.092903      # 1 square foot = 0.092903 square meters
+  sqft_to_acres: 0.00002296 # 1 sq ft = 1/43560 acres (1 acre = 43,560 sq ft)
+  acres_to_sqft: 43560      # 1 acre = 43,560 sq ft
+
+  # Length conversions
+  m_to_ft: 3.28084          # 1 meter = 3.28084 feet
+  ft_to_m: 0.3048           # 1 foot = 0.3048 meters
+  km_to_miles: 0.621371     # 1 kilometer = 0.621371 miles
+  miles_to_km: 1.60934      # 1 mile = 1.60934 kilometers

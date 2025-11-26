@@ -1,0 +1,358 @@
+# Brooklyn Settings for 4-Step Trip Generation Model
+# =================================================
+# This file contains all configuration for running the trip generation model
+# in Brooklyn, NY. To adapt for another area, copy this file and update the
+# values as needed.
+#
+# Note: Universal unit conversions are in unit_conversions.yaml (never changes).
+#
+# Sections:
+#   1. Building Parameters - Default building estimation values
+#   2. Trip Generation Conversions - Sqft to trip gen unit conversions
+#   3. POI to Trip Gen Category Mapping - Maps OSM POI types to NYC categories
+#   4. POI Space Allocation Heuristics - How POIs occupy building space
+#   5. Building Type Mapping - Infer POI type from building tags
+#   6. POI Filtering Rules - Which POIs to include/exclude
+
+# =============================================================================
+# 1. BUILDING PARAMETERS
+# =============================================================================
+# Default values for building estimation when OSM data is incomplete.
+
+building_defaults:
+  default_floors: 4         # Default number of floors for residential buildings
+  avg_floor_height_m: 3.0   # Average floor height in meters
+
+# =============================================================================
+# 2. TRIP GENERATION CONVERSIONS
+# =============================================================================
+# Convert square footage to the units used in NYC trip generation rate tables.
+# These values are Brooklyn-specific and can be adjusted for other areas.
+
+trip_gen_conversions:
+  # Residential: sqft to dwelling units (DU)
+  residential:
+    sqft_per_du: 1000       # Average dwelling unit size (1BR/2BR average for Brooklyn)
+
+  # Hotel: sqft to rooms
+  hotel:
+    sqft_per_room: 400      # Industry standard hotel room size including common areas
+
+  # Schools: sqft to students
+  school:
+    sqft_per_student: 150   # Typical space per student in K-12 schools
+
+  # Daycare: uses 1000 sqft directly
+  daycare:
+    unit: "1000_sf"
+
+  # Cinema: sqft to seats
+  cinema:
+    sqft_per_seat: 8        # Typical space per cinema seat
+
+  # Parks: sqft to acres (uses sqft_to_acres from unit_conversions)
+  parks:
+    unit: "acres"
+
+# Residential category thresholds (NYC trip generation manual categories)
+residential_categories:
+  floors_threshold: 3       # Buildings with >= this many floors use "3 or more floors" category
+  categories:
+    low_rise: "Residential (2 floors or less)"
+    high_rise: "Residential (3 or more floors)"
+
+# =============================================================================
+# 3. POI TO TRIP GENERATION CATEGORY MAPPING
+# =============================================================================
+# Maps POI types from OSM data to NYC trip generation rate table categories.
+# The trip generation categories correspond to the NYC Trip Generation Manual
+# land use classifications used for transportation impact studies.
+
+trip_gen_land_use_map:
+  # Residential types
+  residential: "Residential (3 or more floors)"  # Default for Brooklyn
+  apartments: "Residential (3 or more floors)"
+  house: "Residential (2 floors or less)"
+  detached: "Residential (2 floors or less)"
+  dormitory: "Residential (3 or more floors)"
+
+  # Office
+  office: "Office (multi-tenant type building)"
+  company: "Office (multi-tenant type building)"
+  government: "Office (multi-tenant type building)"
+  insurance: "Office (multi-tenant type building)"
+  lawyer: "Office (multi-tenant type building)"
+  estate_agent: "Office (multi-tenant type building)"
+
+  # Retail
+  supermarket: "Supermarket"
+  convenience: "Local Retail"
+  clothes: "Local Retail"
+  shoes: "Local Retail"
+  hardware: "Home Improvement Store"
+  doityourself: "Home Improvement Store"
+  department_store: "Destination Retail"
+  mall: "Destination Retail"
+  electronics: "Destination Retail"
+
+  # Food service
+  restaurant: "Sit Down/High Turnover Restaurant"
+  cafe: "Sit Down/High Turnover Restaurant"
+  fast_food: "Fast Food Restaurant without Drive Through Window"
+  bar: "Sit Down/High Turnover Restaurant"
+
+  # Education
+  school: "Public School (Students)"
+  kindergarten: "Daycare (Children)"
+  college: "Academic University"
+  university: "Academic University"
+
+  # Medical
+  hospital: "Medical Office"
+  clinic: "Medical Office"
+  doctors: "Medical Office"
+  dentist: "Medical Office"
+
+  # Recreation
+  fitness_centre: "Health Club"
+  sports_centre: "Health Club"
+  park: "Passive Park Space"
+  playground: "Active Park Space"
+  pitch: "Active Park Space"
+
+  # Hospitality
+  hotel: "Hotel"
+  hostel: "Hotel"
+
+  # Entertainment
+  cinema: "Cineplex"
+  theatre: "Cineplex"
+  museum: "Museum"
+
+# Default category for unmapped POI types
+default_trip_gen_category: "Local Retail"
+
+# Trip generation units by category
+trip_gen_units:
+  "Residential (3 or more floors)": "DU"
+  "Residential (2 floors or less)": "DU"
+  "Hotel": "rooms"
+  "Passive Park Space": "acres"
+  "Active Park Space": "acres"
+  "Public School (Students)": "students"
+  "Daycare (Children)": "1000_sf"
+  "Cineplex": "seats"
+  default: "1000_sf"
+
+# =============================================================================
+# 4. POI SPACE ALLOCATION HEURISTICS
+# =============================================================================
+# Defines how POIs occupy building square footage.
+# Format: {poi_type: [floors_occupied, remaining_use]}
+#
+# floors_occupied can be:
+#   'full': POI occupies the entire building
+#   'ground': POI occupies the ground floor only
+#   'multi': POI occupies multiple floors (typically 2)
+#
+# remaining_use is the inferred use of the rest of the building
+# (e.g., 'residential', 'office', or null if POI uses full building)
+
+poi_heuristics:
+  # RELIGIOUS
+  place_of_worship: ['full', null]
+
+  # EDUCATION
+  school: ['full', null]
+  kindergarten: ['full', null]
+  college: ['full', null]
+  university: ['full', null]
+  library: ['full', null]
+
+  # HEALTHCARE
+  hospital: ['full', null]
+  clinic: ['ground', 'residential']
+  doctors: ['ground', 'residential']
+  dentist: ['ground', 'residential']
+  pharmacy: ['ground', 'residential']
+  veterinary: ['ground', 'residential']
+
+  # FOOD/DRINK
+  restaurant: ['ground', 'residential']
+  cafe: ['ground', 'residential']
+  fast_food: ['ground', 'residential']
+  bar: ['ground', 'residential']
+  pub: ['ground', 'residential']
+  ice_cream: ['ground', 'residential']
+  food_court: ['ground', 'residential']
+
+  # RETAIL
+  supermarket: ['ground', 'residential']
+  convenience: ['ground', 'residential']
+  clothes: ['ground', 'residential']
+  shoes: ['ground', 'residential']
+  hardware: ['ground', 'residential']
+  doityourself: ['ground', 'residential']
+  electronics: ['ground', 'residential']
+  mobile_phone: ['ground', 'residential']
+  furniture: ['multi', 'residential']
+  department_store: ['full', null]
+  mall: ['full', null]
+  bakery: ['ground', 'residential']
+  butcher: ['ground', 'residential']
+  greengrocer: ['ground', 'residential']
+  deli: ['ground', 'residential']
+  alcohol: ['ground', 'residential']
+  wine: ['ground', 'residential']
+  books: ['ground', 'residential']
+  gift: ['ground', 'residential']
+  jewelry: ['ground', 'residential']
+  optician: ['ground', 'residential']
+
+  # SERVICES
+  bank: ['ground', 'office']
+  post_office: ['ground', 'office']
+  laundry: ['ground', 'residential']
+  dry_cleaning: ['ground', 'residential']
+  hairdresser: ['ground', 'residential']
+  beauty: ['ground', 'residential']
+  copyshop: ['ground', 'office']
+
+  # OFFICE
+  'yes': ['full', null]
+  company: ['full', null]
+  government: ['full', null]
+  insurance: ['full', null]
+  lawyer: ['ground', 'office']
+  coworking_space: ['multi', 'office']
+
+  # LEISURE
+  fitness_centre: ['multi', 'residential']
+  sports_centre: ['full', null]
+  swimming_pool: ['full', null]
+  pitch: ['full', null]
+
+  # ENTERTAINMENT
+  cinema: ['full', null]
+  theatre: ['full', null]
+  nightclub: ['ground', 'residential']
+  arts_centre: ['full', null]
+  community_centre: ['full', null]
+  museum: ['full', null]
+
+  # ACCOMMODATION
+  hotel: ['full', null]
+  hostel: ['full', null]
+  guest_house: ['full', null]
+
+  # INDUSTRIAL/WAREHOUSE
+  warehouse: ['full', null]
+  industrial: ['full', null]
+
+  # DEFAULT for unknown types by category
+  default_amenity: ['ground', 'residential']
+  default_shop: ['ground', 'residential']
+  default_office: ['full', null]
+  default_leisure: ['ground', 'residential']
+  default_tourism: ['full', null]
+
+# =============================================================================
+# 5. BUILDING TYPE MAPPING
+# =============================================================================
+# Maps OSM building tags to POI types for buildings without matched POIs.
+# Used to infer land use when a building has a specific tag but no POI data.
+
+building_type_map:
+  # Commercial/Retail
+  commercial: 'commercial'
+  retail: 'retail'
+  office: 'office'
+  supermarket: 'supermarket'
+  kiosk: 'convenience'
+
+  # Industrial
+  industrial: 'industrial'
+  warehouse: 'warehouse'
+
+  # Religious
+  church: 'place_of_worship'
+  chapel: 'place_of_worship'
+  cathedral: 'place_of_worship'
+  mosque: 'place_of_worship'
+  synagogue: 'place_of_worship'
+  temple: 'place_of_worship'
+  shrine: 'place_of_worship'
+  kingdom_hall: 'place_of_worship'
+
+  # Education
+  school: 'school'
+  university: 'university'
+  college: 'college'
+  kindergarten: 'kindergarten'
+
+  # Healthcare
+  hospital: 'hospital'
+
+  # Accommodation
+  hotel: 'hotel'
+  dormitory: 'residential'
+
+  # Residential
+  residential: 'residential'
+  apartments: 'residential'
+  house: 'residential'
+  detached: 'residential'
+  semidetached_house: 'residential'
+  terrace: 'residential'
+  bungalow: 'residential'
+
+  # Default
+  'yes': 'residential'
+
+# =============================================================================
+# 6. POI FILTERING RULES
+# =============================================================================
+# Controls which POIs are included in or excluded from the analysis.
+
+poi_filters:
+  # Amenities to exclude (do not generate significant trips)
+  exclude_amenity:
+    - bench
+    - waste_basket
+    - waste_disposal
+    - recycling
+    - drinking_water
+    - telephone
+    - post_box
+    - letter_box
+    - vending_machine
+    - parking
+    - parking_space
+    - parking_entrance
+    - bicycle_parking
+    - motorcycle_parking
+    - bicycle_rental
+    - shelter
+    - toilets
+    - shower
+    - hunting_stand
+    - fountain
+    - clock
+    - photo_booth
+    - atm
+    - construction
+
+  # Leisure tags to include (only these will be kept)
+  keep_leisure:
+    - park
+    - playground
+    - pitch
+    - track
+    - sports_centre
+    - fitness_centre
+    - stadium
+    - ice_rink
+    - swimming_area
+    - dog_park
+    - nature_reserve
+    - golf_course

@@ -1,44 +1,45 @@
-"""Brooklyn-specific heuristics for POI space allocation."""
+"""Heuristics for POI space allocation, loaded from settings file."""
 
 import pandas as pd
 import yaml
 from pathlib import Path
 
-class Heuristics:
-    """Load and manage heuristics from a YAML configuration file."""
 
-    def __init__(self, config_path=None):
+class Heuristics:
+    """Load and manage heuristics from a settings YAML file."""
+
+    def __init__(self, settings_path=None):
         """
-        Initialize heuristics from a YAML file.
+        Initialize heuristics from a settings file.
 
         Parameters:
         -----------
-        config_path : Path or str, optional
-            Path to the heuristics config file. If None, uses default location.
+        settings_path : Path or str, optional
+            Path to the settings YAML file. If None, uses brooklyn_settings.yaml.
         """
-        if config_path is None:
-            # Try to find the config file relative to this module
+        if settings_path is None:
             module_dir = Path(__file__).parent
-            config_path = module_dir.parent / 'settings' / 'heuristics.yaml'
+            settings_path = module_dir.parent / 'settings' / 'brooklyn_settings.yaml'
 
-        self.config_path = Path(config_path)
-        self._load_config()
+        self.settings_path = Path(settings_path)
+        self._load_settings()
 
-    def _load_config(self):
-        """Load configuration from YAML file."""
-        if not self.config_path.exists():
-            raise FileNotFoundError(f"Heuristics config file not found: {self.config_path}")
+    def _load_settings(self):
+        """Load heuristics from settings file."""
+        if not self.settings_path.exists():
+            raise FileNotFoundError(f"Settings file not found: {self.settings_path}")
 
-        with open(self.config_path, 'r') as f:
-            full_config = yaml.safe_load(f)
-        
-        self.poi_heuristics = full_config.get('poi_heuristics', {})
-        self.building_type_map = full_config.get('building_type_map', {})
-        
+        with open(self.settings_path, 'r') as f:
+            settings = yaml.safe_load(f)
+
+        self.poi_heuristics = settings.get('poi_heuristics', {})
+        self.building_type_map = settings.get('building_type_map', {})
+
         # Load POI filters
-        poi_filters = full_config.get('poi_filters', {})
+        poi_filters = settings.get('poi_filters', {})
         self.exclude_amenity = set(poi_filters.get('exclude_amenity', []))
         self.keep_leisure = set(poi_filters.get('keep_leisure', []))
+
 
 # Global instance for convenience
 _heuristics_instance = Heuristics()

@@ -120,29 +120,55 @@ def process_buildings(gdf: gpd.GeoDataFrame, config: CityConfig, verbose=True):
     # Calculate Total Square Footage
     gdf_proj["total_sqft"] = gdf_proj["footprint_sqft"] * gdf_proj["estimated_floors"]
 
-    # Add validation for unrealistic building sizes
+    # Add validation for unrealistic building sizes and create warning flags
     large_buildings = gdf_proj['total_sqft'] > 1_000_000
-    if large_buildings.any():
-        print(f"WARNING: {large_buildings.sum():,} buildings exceed 1M sqft")
-        if verbose:
-            # Show statistics of large buildings
-            large_bldg_stats = gdf_proj.loc[large_buildings, 'total_sqft'].describe()
-            print(f"  Large buildings stats: max={large_bldg_stats['max']:,.0f} sqft, mean={large_bldg_stats['mean']:,.0f} sqft")
-
     very_large_buildings = gdf_proj['total_sqft'] > 5_000_000
-    if very_large_buildings.any():
-        print(f"WARNING: {very_large_buildings.sum():,} buildings exceed 5M sqft (likely data errors)")
-
-    # Check for unrealistic floor counts
     high_floors = gdf_proj['estimated_floors'] > 100
-    if high_floors.any():
-        print(f"WARNING: {high_floors.sum():,} buildings have >100 floors (likely data errors)")
-        if verbose:
-            max_floors = gdf_proj.loc[high_floors, 'estimated_floors'].max()
-            print(f"  Maximum floor count: {max_floors}")
 
-    # Prepare final building data
-    useful_columns = ["building", "footprint_sqft", "estimated_floors", "total_sqft", "geometry"]
+    # Create warning flags in the dataframe
+    gdf_proj['warning_flags'] = ''
+    gdf_proj['has_warning'] = False
+
+    # Add specific warning flags
+    warnings = []
+    if large_buildings.any():
+        gdf_proj.loc[large_buildings, 'warning_flags'] += 'large_sqft;'
+        gdf_proj.loc[large_buildings, 'has_warning'] = True
+        warnings.append(f"{large_buildings.sum():,} buildings exceed 1M sqft")
+
+    if very_large_buildings.any():
+        gdf_proj.loc[very_large_buildings, 'warning_flags'] += 'very_large_sqft;'
+        gdf_proj.loc[very_large_buildings, 'has_warning'] = True
+        warnings.append(f"{very_large_buildings.sum():,} buildings exceed 5M sqft (likely data errors)")
+
+    if high_floors.any():
+        gdf_proj.loc[high_floors, 'warning_flags'] += 'high_floors;'
+        gdf_proj.loc[high_floors, 'has_warning'] = True
+        warnings.append(f"{high_floors.sum():,} buildings have >100 floors (likely data errors)")
+
+    # Clean up warning flags (remove trailing semicolon)
+    gdf_proj['warning_flags'] = gdf_proj['warning_flags'].str.rstrip(';')
+
+    # Print warnings if any exist
+    if warnings:
+        for warning in warnings:
+            print(f"WARNING: {warning}")
+
+        if verbose:
+            # Show statistics of flagged buildings
+            if large_buildings.any():
+                large_bldg_stats = gdf_proj.loc[large_buildings, 'total_sqft'].describe()
+                print(f"  Large buildings stats: max={large_bldg_stats['max']:,.0f} sqft, mean={large_bldg_stats['mean']:,.0f} sqft")
+            if high_floors.any():
+                max_floors = gdf_proj.loc[high_floors, 'estimated_floors'].max()
+                print(f"  Maximum floor count: {max_floors}")
+
+            # Summary of all warnings
+            total_warnings = gdf_proj['has_warning'].sum()
+            print(f"\nTotal buildings with warnings: {total_warnings:,} ({total_warnings/len(gdf_proj)*100:.1f}%)")
+
+    # Prepare final building data (include warning flags)
+    useful_columns = ["building", "footprint_sqft", "estimated_floors", "total_sqft", "has_warning", "warning_flags", "geometry"]
     buildings_gdf = gdf_proj[[c for c in useful_columns if c in gdf_proj.columns]].copy()
     buildings_gdf = buildings_gdf.to_crs("EPSG:4326")
 

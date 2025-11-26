@@ -3,74 +3,51 @@
 import geopandas as gpd
 import pandas as pd
 import numpy as np
+import yaml
+from pathlib import Path
 from .heuristics import BUILDING_TYPE_MAP
-from .config import CityConfig
-
-# Land use type mapping from our categories to trip generation table
-TRIP_GEN_LAND_USE_MAP = {
-    # Residential types
-    'residential': 'Residential (3 or more floors)',  # Default for Brooklyn
-    'apartments': 'Residential (3 or more floors)',
-    'house': 'Residential (2 floors or less)',
-    'detached': 'Residential (2 floors or less)',
-    'dormitory': 'Residential (3 or more floors)',
-
-    # Office
-    'office': 'Office (multi-tenant type building)',
-    'company': 'Office (multi-tenant type building)',
-    'government': 'Office (multi-tenant type building)',
-    'insurance': 'Office (multi-tenant type building)',
-    'lawyer': 'Office (multi-tenant type building)',
-    'estate_agent': 'Office (multi-tenant type building)',
-
-    # Retail
-    'supermarket': 'Supermarket',
-    'convenience': 'Local Retail',
-    'clothes': 'Local Retail',
-    'shoes': 'Local Retail',
-    'hardware': 'Home Improvement Store',
-    'doityourself': 'Home Improvement Store',
-    'department_store': 'Destination Retail',
-    'mall': 'Destination Retail',
-    'electronics': 'Destination Retail',
-
-    # Food service
-    'restaurant': 'Sit Down/High Turnover Restaurant',
-    'cafe': 'Sit Down/High Turnover Restaurant',
-    'fast_food': 'Fast Food Restaurant without Drive Through Window',
-    'bar': 'Sit Down/High Turnover Restaurant',
-
-    # Education
-    'school': 'Public School (Students)',
-    'kindergarten': 'Daycare (Children)',
-    'college': 'Academic University',
-    'university': 'Academic University',
-
-    # Medical
-    'hospital': 'Medical Office',
-    'clinic': 'Medical Office',
-    'doctors': 'Medical Office',
-    'dentist': 'Medical Office',
-
-    # Recreation
-    'fitness_centre': 'Health Club',
-    'sports_centre': 'Health Club',
-    'park': 'Passive Park Space',
-    'playground': 'Active Park Space',
-    'pitch': 'Active Park Space',
-
-    # Hospitality
-    'hotel': 'Hotel',
-    'hostel': 'Hotel',
-
-    # Entertainment
-    'cinema': 'Cineplex',
-    'theatre': 'Cineplex',
-    'museum': 'Museum',
-}
+from .config import AreaConfig, CityConfig  # CityConfig kept for backward compatibility
 
 
-def create_trip_generators(processed_pois_df, buildings_gdf, config: CityConfig, verbose=True):
+def load_poi_mapping(settings_path=None):
+    """
+    Load POI to trip generation category mapping from settings file.
+
+    Parameters:
+    -----------
+    settings_path : Path or str, optional
+        Path to the settings YAML file. If None, uses brooklyn_settings.yaml.
+
+    Returns:
+    --------
+    dict
+        Dictionary with 'land_use_map', 'default_category', and 'units' keys
+    """
+    if settings_path is None:
+        module_dir = Path(__file__).parent
+        settings_path = module_dir.parent / 'settings' / 'brooklyn_settings.yaml'
+
+    settings_path = Path(settings_path)
+    if not settings_path.exists():
+        raise FileNotFoundError(f"Settings file not found: {settings_path}")
+
+    with open(settings_path, 'r') as f:
+        settings = yaml.safe_load(f)
+
+    return {
+        'land_use_map': settings['trip_gen_land_use_map'],
+        'default_category': settings['default_trip_gen_category'],
+        'units': settings.get('trip_gen_units', {})
+    }
+
+
+# Load the mapping at module level for backward compatibility
+_POI_MAPPING = load_poi_mapping()
+TRIP_GEN_LAND_USE_MAP = _POI_MAPPING['land_use_map']
+TRIP_GEN_DEFAULT_CATEGORY = _POI_MAPPING['default_category']
+
+
+def create_trip_generators(processed_pois_df, buildings_gdf, config: AreaConfig, verbose=True):
     """
     Create unified trip generator dataset using vectorized operations.
 
@@ -80,8 +57,8 @@ def create_trip_generators(processed_pois_df, buildings_gdf, config: CityConfig,
         Processed POIs with square footage allocations
     buildings_gdf : GeoDataFrame
         Buildings data with building_id and total_sqft
-    config : CityConfig
-        Configuration object with city-specific parameters
+    config : AreaConfig
+        Configuration object with area-specific parameters
     verbose : bool
         If True, print detailed progress messages
 
@@ -159,7 +136,7 @@ def create_trip_generators(processed_pois_df, buildings_gdf, config: CityConfig,
     # Initialize columns
     generators_gdf['trip_gen_value'] = 0.0
     generators_gdf['trip_gen_unit'] = '1000_sf'
-    generators_gdf['trip_gen_category'] = generators_gdf['land_use_type'].map(TRIP_GEN_LAND_USE_MAP).fillna('Local Retail')
+    generators_gdf['trip_gen_category'] = generators_gdf['land_use_type'].map(TRIP_GEN_LAND_USE_MAP).fillna(TRIP_GEN_DEFAULT_CATEGORY)
 
     # Vectorized unit conversions by category
     # Residential
