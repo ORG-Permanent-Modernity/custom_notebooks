@@ -58,6 +58,10 @@ class FourStepModelConfig:
     # Mode choice settings
     run_mode_choice: bool = True
     mode_choice_model: Optional[ModeChoiceModel] = None
+    area_type: Optional[str] = "urban"  # "urban_core", "urban", "suburban", "rural"
+    auto_ownership_rate: Optional[float] = 0.46  # Brooklyn default from ACS
+    bike_ownership_rate: Optional[float] = 0.30  # ~30% own bikes
+    bikeshare_coverage: Optional[float] = 0.60   # Citi Bike coverage in Brooklyn
 
     # Traffic assignment settings
     run_assignment: bool = False  # Requires network
@@ -453,6 +457,10 @@ def run_4step_model(
         mode_trips, vehicle_trips = run_mode_choice(
             trip_matrix, impedance,
             model=config.mode_choice_model,
+            area_type=config.area_type,
+            auto_ownership_rate=config.auto_ownership_rate,
+            bike_ownership_rate=config.bike_ownership_rate,
+            bikeshare_coverage=config.bikeshare_coverage,
             verbose=verbose
         )
 

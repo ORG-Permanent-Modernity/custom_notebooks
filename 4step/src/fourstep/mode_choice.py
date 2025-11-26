@@ -28,19 +28,21 @@ class ModeChoiceModel:
         "auto_passenger",
         "transit",
         "walk",
-        "bike"
+        "bike_personal",  # Own bike - free, higher propensity
+        "bike_share"      # Shared bike - costs money, available to more people
     ])
 
     # Alternative-specific constants (ASC)
     # Base mode is auto_driver (ASC = 0)
-    # Note: bike ASC is low because biking has many barriers beyond time/distance
-    # (weather, safety, physical ability, carrying capacity, etc.)
     asc: dict = field(default_factory=lambda: {
         "auto_driver": 0.0,
         "auto_passenger": -1.5,
         "transit": -0.8,
         "walk": -1.2,
-        "bike": -3.5,  # Strong penalty for non-time/distance barriers
+        # Personal bike: owners have higher propensity (free, intentional purchase)
+        "bike_personal": -3.2,
+        # Bike share: lower propensity (costs money, less committed)
+        "bike_share": -3.8,
     })
 
     # Coefficient for in-vehicle travel time (minutes)
@@ -60,7 +62,7 @@ class ModeChoiceModel:
 
     # Walk/bike distance coefficient (miles)
     beta_walk_distance: float = -0.80
-    beta_bike_distance: float = -0.50  # Stronger penalty - biking gets harder with distance
+    beta_bike_distance: float = -0.30  # Moderate penalty for biking distance
 
     # Maximum walk distance for walk mode (miles)
     max_walk_distance: float = 2.0
@@ -142,16 +144,37 @@ def calculate_mode_utilities(
     walk_utility[mode_impedance.walk_distance > model.max_walk_distance] = -np.inf
     utilities["walk"] = walk_utility
 
-    # Bike utility (with distance cap and optional cost)
-    bike_utility = (
-        model.asc["bike"] +
-        model.beta_bike_distance * mode_impedance.bike_distance
-    )
-    # Add bike share cost if provided (e.g., Citi Bike per-trip fee)
-    if mode_impedance.bike_cost is not None:
-        bike_utility = bike_utility + model.beta_cost * mode_impedance.bike_cost
-    bike_utility[mode_impedance.bike_distance > model.max_bike_distance] = -np.inf
-    utilities["bike"] = bike_utility
+    # Personal bike utility (free, no cost)
+    if "bike_personal" in model.asc:
+        bike_personal_utility = (
+            model.asc["bike_personal"] +
+            model.beta_bike_distance * mode_impedance.bike_distance
+        )
+        bike_personal_utility[mode_impedance.bike_distance > model.max_bike_distance] = -np.inf
+        utilities["bike_personal"] = bike_personal_utility
+
+    # Bike share utility (with cost)
+    if "bike_share" in model.asc:
+        bike_share_utility = (
+            model.asc["bike_share"] +
+            model.beta_bike_distance * mode_impedance.bike_distance
+        )
+        # Add bike share cost
+        if mode_impedance.bike_cost is not None:
+            bike_share_utility = bike_share_utility + model.beta_cost * mode_impedance.bike_cost
+        bike_share_utility[mode_impedance.bike_distance > model.max_bike_distance] = -np.inf
+        utilities["bike_share"] = bike_share_utility
+
+    # Backwards compatibility: single "bike" mode
+    if "bike" in model.asc and "bike" in model.modes:
+        bike_utility = (
+            model.asc["bike"] +
+            model.beta_bike_distance * mode_impedance.bike_distance
+        )
+        if mode_impedance.bike_cost is not None:
+            bike_utility = bike_utility + model.beta_cost * mode_impedance.bike_cost
+        bike_utility[mode_impedance.bike_distance > model.max_bike_distance] = -np.inf
+        utilities["bike"] = bike_utility
 
     return utilities
 
@@ -377,7 +400,7 @@ def create_urban_mode_impedance(
             "transit_fare": 2.90,
             "parking_cost": 12.0,         # $12/day average
             "parking_search_min": 8.0,
-            "bike_share_cost": 1.50,      # More members in urban areas
+            "bike_share_cost": 1.20,      # More members in urban areas (20% reduction)
         },
         "suburban": {
             "auto_speed_mph": 30.0,       # Less congestion
@@ -438,7 +461,8 @@ def run_mode_choice(
     mode_impedance: Optional[ModeImpedance] = None,
     area_type: Optional[str] = None,
     auto_ownership_rate: Optional[float] = None,
-    bike_availability_rate: Optional[float] = None,
+    bike_ownership_rate: Optional[float] = None,
+    bikeshare_coverage: Optional[float] = None,
     verbose: bool = False
 ) -> tuple[dict[str, np.ndarray], np.ndarray]:
     """
@@ -453,10 +477,12 @@ def run_mode_choice(
             Options: "urban_core", "urban", "suburban", "rural"
         auto_ownership_rate: Fraction of trips with auto access (0-1).
             If 0.45, only 45% of trips can choose auto modes.
-            This caps auto mode share to reflect vehicle availability.
-        bike_availability_rate: Fraction of trips with bike access (0-1).
-            Reflects bike ownership, bike share coverage, physical ability.
-            Default None = no constraint. Typical urban values: 0.10-0.20.
+        bike_ownership_rate: Fraction of people who own a personal bike (0-1).
+            Only these people can use bike_personal mode. Default ~0.30.
+            Personal bike owners have higher propensity to bike (free, convenient).
+        bikeshare_coverage: Fraction of trips with bike share access (0-1).
+            Represents coverage area of bike share stations.
+            Default 1.0 = all trips can access bike share (but it costs money).
         verbose: Print progress and results
 
     Returns:
@@ -515,29 +541,54 @@ def run_mode_choice(
                                     1.0 / len(non_auto_modes))
                     probabilities[m] = probabilities[m] + reduction * share
 
-    # Apply bike availability constraint if specified
-    if bike_availability_rate is not None and 0 < bike_availability_rate < 1:
-        if verbose:
-            print(f"  Applying bike availability constraint ({bike_availability_rate:.0%} have bike access)...")
+    # Apply personal bike ownership constraint
+    # Only bike owners can use bike_personal mode
+    if bike_ownership_rate is not None and 0 < bike_ownership_rate < 1:
+        if "bike_personal" in probabilities:
+            if verbose:
+                print(f"  Applying personal bike ownership constraint ({bike_ownership_rate:.0%} own bikes)...")
 
-        # For trips from people without bike access, redistribute bike prob to other modes
-        no_bike_fraction = 1 - bike_availability_rate
-        non_bike_modes = [m for m in probabilities if m != "bike"]
+            no_bike_fraction = 1 - bike_ownership_rate
+            non_personal_bike_modes = [m for m in probabilities if m != "bike_personal"]
 
-        if "bike" in probabilities:
             # Calculate reduction amount
-            reduction = probabilities["bike"] * no_bike_fraction
+            reduction = probabilities["bike_personal"] * no_bike_fraction
 
-            # Reduce bike probability
-            probabilities["bike"] = probabilities["bike"] * bike_availability_rate
+            # Reduce personal bike probability
+            probabilities["bike_personal"] = probabilities["bike_personal"] * bike_ownership_rate
 
-            # Redistribute to non-bike modes proportionally
-            non_bike_total = sum(probabilities[m] for m in non_bike_modes)
+            # Redistribute to other modes proportionally
+            other_total = sum(probabilities[m] for m in non_personal_bike_modes)
 
-            for m in non_bike_modes:
-                share = np.where(non_bike_total > 0,
-                                probabilities[m] / non_bike_total,
-                                1.0 / len(non_bike_modes))
+            for m in non_personal_bike_modes:
+                share = np.where(other_total > 0,
+                                probabilities[m] / other_total,
+                                1.0 / len(non_personal_bike_modes))
+                probabilities[m] = probabilities[m] + reduction * share
+
+    # Apply bike share coverage constraint
+    # Only trips in coverage area can use bike_share mode
+    if bikeshare_coverage is not None and 0 < bikeshare_coverage < 1:
+        if "bike_share" in probabilities:
+            if verbose:
+                print(f"  Applying bike share coverage constraint ({bikeshare_coverage:.0%} coverage)...")
+
+            no_coverage_fraction = 1 - bikeshare_coverage
+            non_bikeshare_modes = [m for m in probabilities if m != "bike_share"]
+
+            # Calculate reduction amount
+            reduction = probabilities["bike_share"] * no_coverage_fraction
+
+            # Reduce bike share probability
+            probabilities["bike_share"] = probabilities["bike_share"] * bikeshare_coverage
+
+            # Redistribute to other modes proportionally
+            other_total = sum(probabilities[m] for m in non_bikeshare_modes)
+
+            for m in non_bikeshare_modes:
+                share = np.where(other_total > 0,
+                                probabilities[m] / other_total,
+                                1.0 / len(non_bikeshare_modes))
                 probabilities[m] = probabilities[m] + reduction * share
 
     mode_trips = apply_mode_choice(trip_matrix, probabilities, verbose=verbose)

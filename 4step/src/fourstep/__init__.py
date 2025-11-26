@@ -62,6 +62,25 @@ from .acs_data import (
     BIKE_AVAILABILITY_RATES
 )
 
+from .cms_data import (
+    load_cms_trips,
+    load_cms_persons,
+    load_cms_households,
+    filter_brooklyn_trips,
+    calculate_mode_shares,
+    get_brooklyn_mode_shares,
+    get_ownership_statistics,
+    get_brooklyn_ownership,
+    get_trip_length_distribution,
+    get_person_bike_usage,
+    get_mode_choice_calibration_targets,
+    analyze_cms_data,
+    CMSModeShares,
+    CMSOwnershipStats,
+    MODE_TYPE_CODES,
+    BROOKLYN_ZONES,
+)
+
 from .pipeline import run_4step_model
 
 __version__ = "0.1.0"
@@ -106,6 +125,23 @@ __all__ = [
     "STATE_FIPS",
     "NYC_COUNTIES",
     "BIKE_AVAILABILITY_RATES",
+    # CMS Data
+    "load_cms_trips",
+    "load_cms_persons",
+    "load_cms_households",
+    "filter_brooklyn_trips",
+    "calculate_mode_shares",
+    "get_brooklyn_mode_shares",
+    "get_ownership_statistics",
+    "get_brooklyn_ownership",
+    "get_trip_length_distribution",
+    "get_person_bike_usage",
+    "get_mode_choice_calibration_targets",
+    "analyze_cms_data",
+    "CMSModeShares",
+    "CMSOwnershipStats",
+    "MODE_TYPE_CODES",
+    "BROOKLYN_ZONES",
     # Pipeline
     "run_4step_model",
 ]
