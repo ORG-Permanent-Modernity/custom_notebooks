@@ -1,0 +1,171 @@
+# Create a data dictionary text file
+data_dict = """NYC CENSUS TRACTS ACS 2023 DATA DICTIONARY
+============================================
+
+IDENTIFIER COLUMNS
+------------------
+BOROUGH     - NYC Borough name (Bronx, Brooklyn, Manhattan, Queens, Staten Island)
+GEOID       - 11-digit Census Tract GEOID (State+County+Tract)
+STATE       - State FIPS code (36 for New York)
+COUNTY      - County FIPS code (005=Bronx, 047=Brooklyn, 061=Manhattan, 081=Queens, 085=Staten Island)
+TRACT       - Census Tract code
+
+BASIC DEMOGRAPHICS
+------------------
+pop_total   - Total population
+med_hhinc   - Median household income (dollars)
+med_age     - Median age (years)
+avg_hhsize  - Average household size (persons)
+hh_total    - Total number of households
+
+VEHICLE AVAILABILITY
+--------------------
+hh_noveh    - Households with no vehicle available
+hh_1veh     - Households with 1 vehicle available
+hh_2veh     - Households with 2 vehicles available
+hh_3veh     - Households with 3 vehicles available
+hh_4plus    - Households with 4 or more vehicles available
+
+COMMUTE/TRAVEL
+--------------
+mean_trvtm  - Mean travel time to work (minutes)
+cmut_car    - Workers who commute by car, truck, or van
+cmut_trans  - Workers who commute by public transportation
+cmut_bike   - Workers who commute by bicycle
+cmut_walk   - Workers who commute by walking
+
+INCOME & POVERTY
+----------------
+pop_povty   - Population below poverty level
+
+HOUSING
+-------
+hu_total    - Total housing units
+hu_vacant   - Vacant housing units
+med_homval  - Median home value (dollars)
+
+AGE CATEGORIES - MALE
+---------------------
+pop_age     - Total population for age calculation
+m_und5      - Male population under 5 years
+m_5to9      - Male population 5 to 9 years
+m_10to14    - Male population 10 to 14 years
+m_15to17    - Male population 15 to 17 years
+m_18to19    - Male population 18 to 19 years
+m_20        - Male population 20 years
+m_21        - Male population 21 years
+m_22to24    - Male population 22 to 24 years
+m_25to29    - Male population 25 to 29 years
+m_30to34    - Male population 30 to 34 years
+m_35to39    - Male population 35 to 39 years
+m_40to44    - Male population 40 to 44 years
+m_45to49    - Male population 45 to 49 years
+m_50to54    - Male population 50 to 54 years
+m_55to59    - Male population 55 to 59 years
+m_60to61    - Male population 60 to 61 years
+m_62to64    - Male population 62 to 64 years
+m_65to66    - Male population 65 to 66 years
+m_67to69    - Male population 67 to 69 years
+m_70to74    - Male population 70 to 74 years
+m_75to79    - Male population 75 to 79 years
+m_80to84    - Male population 80 to 84 years
+m_85plus    - Male population 85 years and over
+
+AGE CATEGORIES - FEMALE
+-----------------------
+f_und5      - Female population under 5 years
+f_5to9      - Female population 5 to 9 years
+f_10to14    - Female population 10 to 14 years
+f_15to17    - Female population 15 to 17 years
+f_18to19    - Female population 18 to 19 years
+f_20        - Female population 20 years
+f_21        - Female population 21 years
+f_22to24    - Female population 22 to 24 years
+f_25to29    - Female population 25 to 29 years
+f_30to34    - Female population 30 to 34 years
+f_35to39    - Female population 35 to 39 years
+f_40to44    - Female population 40 to 44 years
+f_45to49    - Female population 45 to 49 years
+f_50to54    - Female population 50 to 54 years
+f_55to59    - Female population 55 to 59 years
+f_60to61    - Female population 60 to 61 years
+f_62to64    - Female population 62 to 64 years
+f_65to66    - Female population 65 to 66 years
+f_67to69    - Female population 67 to 69 years
+f_70to74    - Female population 70 to 74 years
+f_75to79    - Female population 75 to 79 years
+f_80to84    - Female population 80 to 84 years
+f_85plus    - Female population 85 years and over
+
+RACE CATEGORIES (ALONE)
+-----------------------
+pop_race    - Total population for race calculation
+r_white     - White alone
+r_black     - Black or African American alone
+r_native    - American Indian and Alaska Native alone
+r_asian     - Asian alone
+r_pacific   - Native Hawaiian and Other Pacific Islander alone
+r_other     - Some other race alone
+r_twomore   - Two or more races
+
+HISPANIC/LATINO ORIGIN - NON-HISPANIC
+-------------------------------------
+pop_hisp    - Total population for Hispanic origin calculation
+nh_total    - Not Hispanic or Latino (total)
+nh_white    - Not Hispanic or Latino: White alone
+nh_black    - Not Hispanic or Latino: Black or African American alone
+nh_native   - Not Hispanic or Latino: American Indian and Alaska Native alone
+nh_asian    - Not Hispanic or Latino: Asian alone
+nh_pacific  - Not Hispanic or Latino: Native Hawaiian and Other Pacific Islander alone
+nh_other    - Not Hispanic or Latino: Some other race alone
+nh_twomore  - Not Hispanic or Latino: Two or more races
+
+HISPANIC/LATINO ORIGIN - HISPANIC
+---------------------------------
+h_total     - Hispanic or Latino (total)
+h_white     - Hispanic or Latino: White alone
+h_black     - Hispanic or Latino: Black or African American alone
+h_native    - Hispanic or Latino: American Indian and Alaska Native alone
+h_asian     - Hispanic or Latino: Asian alone
+h_pacific   - Hispanic or Latino: Native Hawaiian and Other Pacific Islander alone
+h_other     - Hispanic or Latino: Some other race alone
+h_twomore   - Hispanic or Latino: Two or more races
+
+AGGREGATED AGE GROUPS
+---------------------
+age_und18   - Total population under 18 years
+age_18t64   - Total population 18 to 64 years
+age_65plus  - Total population 65 years and over
+
+CALCULATED PERCENTAGES
+----------------------
+pct_noveh   - Percent of households with no vehicle
+pct_povty   - Percent of population below poverty level
+vac_rate    - Housing vacancy rate (percent)
+pct_white   - Percent White alone
+pct_black   - Percent Black or African American alone
+pct_asian   - Percent Asian alone
+pct_hisp    - Percent Hispanic or Latino
+pct_und18   - Percent of population under 18 years
+pct_18t64   - Percent of population 18 to 64 years
+pct_65plus  - Percent of population 65 years and over
+
+DATA SOURCE
+-----------
+U.S. Census Bureau
+American Community Survey (ACS) 5-Year Estimates 2019-2023
+Downloaded from: https://www.census.gov/programs-surveys/acs/
+
+NOTES
+-----
+- All column names are 10 characters or less for ESRI Shapefile compatibility
+- Percentages are calculated and rounded to 2 decimal places
+- Null values may appear where data is suppressed or unavailable
+- Margins of error are not included in this dataset
+"""
+
+# Save to file
+with open('nyc_census_data_dictionary.txt', 'w') as f:
+    f.write(data_dict)
+
+print("✓ Data dictionary saved to: nyc_census_data_dictionary.txt")
